@@ -1,18 +1,17 @@
 import { useCallback, useRef } from 'react';
-import { useDispatch } from 'react-redux';
+import { useDispatch, useSelector } from 'react-redux';
 import { AgGridReact } from 'ag-grid-react';
 import { nanoid } from '@reduxjs/toolkit';
 import type { CellEditRequestEvent } from 'ag-grid-community';
 
-import {
-  useGetOrderItemsQuery,
-  editOrderItemAction,
-  addOrderItemAction,
-  clearOrderItemsAction,
-} from 'features/item/itemApi';
+import { useGetOrderItemsQuery } from 'features/item/itemApi';
 import { useSelectedOrder } from 'features/order/orderSlice';
-import { getEditedRowItem } from 'app/GridUtils';
+import { selectItemId, clearSelectedItemId } from 'features/item/itemSlice';
+import { upsertPropertyEdit, addLocalEntity, updateLocalEntity } from 'edits/editSlice';
+import { clearOrderItemsThunk } from 'edits/editActions';
+import { selectOrderItemsView } from 'edits/viewSelectors';
 import ItemCellRenderer from './ItemCellRenderer';
+import type { AppDispatch, RootState } from 'app/store';
 import type { Item } from 'types';
 
 const columnDefs = [
@@ -22,32 +21,53 @@ const columnDefs = [
 ];
 
 const rowSelection = {
-  mode: 'multiRow',
+  mode: 'singleRow',
   checkboxes: false,
-  headerCheckbox: false,
   enableClickSelection: true,
 };
 
 const Items = () => {
   const gridRef = useRef<AgGridReact<Item>>(null);
-  const dispatch = useDispatch();
+  const dispatch = useDispatch<AppDispatch>();
 
   const { data: selectedOrder } = useSelectedOrder();
-  const { data: items } = useGetOrderItemsQuery(selectedOrder?.id);
+  const orderId = selectedOrder?.id ?? '';
+
+  useGetOrderItemsQuery(selectedOrder?.id); // trigger fetch; view is derived by selector
+  const itemsView = useSelector(selectOrderItemsView(orderId));
+  const addedItemIds = useSelector((state: RootState) => state.edits.addedEntities['item'] ?? {});
 
   const onCellEditRequest = useCallback((event: CellEditRequestEvent<Item>) => {
-    const editedItem = getEditedRowItem(event);
-    dispatch(editOrderItemAction(selectedOrder!.id, editedItem));
-  }, [dispatch, selectedOrder]);
+    const { data, colDef: { field }, newValue } = event;
+    if (data!.id in addedItemIds) {
+      dispatch(updateLocalEntity({ entityType: 'item', entity: { ...data!, [field!]: newValue } }));
+    } else {
+      dispatch(upsertPropertyEdit({
+        entityId: data!.id,
+        path: field!,
+        originalValue: (data as unknown as Record<string, unknown>)[field!],
+        editedValue: newValue,
+      }));
+    }
+  }, [dispatch, addedItemIds]);
+
+  const onSelectionChanged = useCallback(() => {
+    const [selectedItem] = gridRef.current!.api.getSelectedRows();
+    if (selectedItem) {
+      dispatch(selectItemId(selectedItem.id));
+    } else {
+      dispatch(clearSelectedItemId());
+    }
+  }, [dispatch]);
 
   const addOrderItem = useCallback(() => {
-    const newItem: Item = { id: nanoid(), name: 'new item', _orderId: selectedOrder!.id };
-    dispatch(addOrderItemAction(selectedOrder!.id, newItem));
-  }, [dispatch, selectedOrder]);
+    const newItem: Item = { id: nanoid(), name: 'new item', _parentId: orderId };
+    dispatch(addLocalEntity({ entityType: 'item', entity: newItem }));
+  }, [dispatch, orderId]);
 
   const clearItems = useCallback(() => {
-    dispatch(clearOrderItemsAction(selectedOrder!.id));
-  }, [dispatch, selectedOrder]);
+    dispatch(clearOrderItemsThunk(orderId));
+  }, [dispatch, orderId]);
 
   return (
     <div style={{ height: '400px', width: '100%' }}>
@@ -60,11 +80,12 @@ const Items = () => {
           <AgGridReact<Item>
             ref={gridRef}
             getRowId={(params) => params.data.id}
-            rowData={items}
+            rowData={itemsView}
             columnDefs={columnDefs}
             animateRows={true}
             readOnlyEdit={true}
             onCellEditRequest={onCellEditRequest}
+            onSelectionChanged={onSelectionChanged}
             rowSelection={rowSelection}
           />
         </div>

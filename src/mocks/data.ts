@@ -8,11 +8,38 @@ const orders: Order[] = [
 ];
 
 const items: Item[] = [
-  { id: nanoid(), name: 'item1', _orderId: orders[1].id },
-  { id: nanoid(), name: 'item2', _orderId: orders[1].id },
-  { id: nanoid(), name: 'item3', _orderId: orders[2].id },
-  { id: nanoid(), name: 'item4', _orderId: orders[2].id },
-  { id: nanoid(), name: 'item5', _orderId: orders[2].id },
+  {
+    id: nanoid(), name: 'item1', _parentId: orders[1].id,
+    warehouses: [
+      { id: nanoid(), name: 'Sydney Hub',    location: 'Sydney' },
+      { id: nanoid(), name: 'Melbourne Hub', location: 'Melbourne' },
+    ],
+  },
+  {
+    id: nanoid(), name: 'item2', _parentId: orders[1].id,
+    warehouses: [
+      { id: nanoid(), name: 'Brisbane Depot', location: 'Brisbane' },
+    ],
+  },
+  {
+    id: nanoid(), name: 'item3', _parentId: orders[2].id,
+    warehouses: [
+      { id: nanoid(), name: 'Perth Store', location: 'Perth' },
+    ],
+  },
+  {
+    id: nanoid(), name: 'item4', _parentId: orders[2].id,
+    warehouses: [
+      { id: nanoid(), name: 'Adelaide Centre', location: 'Adelaide' },
+      { id: nanoid(), name: 'Darwin Outpost',  location: 'Darwin' },
+    ],
+  },
+  {
+    id: nanoid(), name: 'item5', _parentId: orders[2].id,
+    warehouses: [
+      { id: nanoid(), name: 'Hobart Facility', location: 'Hobart' },
+    ],
+  },
 ];
 
 export const saveOrders = (orders: Order[]) => localStorage.setItem('order', JSON.stringify(orders));

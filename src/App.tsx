@@ -16,6 +16,8 @@ import './App.css';
 import Loading from './app/Loading';
 import Orders from './features/order/Orders';
 import Items from './features/item/Items';
+import Warehouses from './features/warehouse/Warehouses';
+import EditsDebugPanel from './app/EditsDebugPanel';
 import { useIsLoading } from './features/api/utils';
 
 ModuleRegistry.registerModules([
@@ -40,6 +42,9 @@ function App() {
       <Orders />
       <h1>Items</h1>
       <Items />
+      <h1>Warehouses</h1>
+      <Warehouses />
+      <EditsDebugPanel />
     </div>
   );
 }

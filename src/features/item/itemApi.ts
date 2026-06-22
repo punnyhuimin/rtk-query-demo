@@ -1,7 +1,5 @@
 import { api } from 'features/api/apiSlice';
-import { updateOrderAction } from 'features/order/orderApi';
 import { providesId } from 'features/api/utils';
-import { saveInitialOrderItemIds } from './itemSlice';
 import { store } from 'app/store';
 import type { Item } from 'types';
 
@@ -25,10 +23,6 @@ export const itemApi = api.injectEndpoints({
         return `searchItems(${JSON.stringify(orderId)})`;
       },
       providesTags: (result, error, { orderId }) => providesId(result, orderId!, 'OrderItems'),
-      async onQueryStarted({ orderId }, { dispatch, queryFulfilled }) {
-        const { data: items } = await queryFulfilled;
-        dispatch(saveInitialOrderItemIds({ orderId: orderId!, itemIds: items.map(i => i.id) }));
-      },
     }),
     searchItemsBatch: builder.query<Record<string, Item[]>, { orderIds: string[] }>({
       queryFn: async ({ orderIds = [] }, _api, _extraOptions, baseQuery) => {
@@ -129,55 +123,4 @@ export const useGetOrderItemsQuery = (orderIds: string | string[] = [], options?
     );
   }
   return useSearchItemsBatchQuery({ orderIds: orderIdsArray }, options);
-};
-
-const invalidateBatchItemsResults = (dispatch: (action: unknown) => void, orderId: string) => {
-  dispatch(api.util.invalidateTags([{ type: 'OrderItemsBatch', id: orderId }]));
-};
-
-export const editOrderItemAction = (orderId: string, editedItem: Item) => (dispatch: any) => {
-  dispatch(itemApi.util.updateQueryData(
-    'searchItems', { orderId }, (draftItems) => {
-      const index = draftItems.findIndex(o => o.id === editedItem.id);
-      draftItems[index] = { ...editedItem, __isDirty: true };
-    }
-  ));
-  dispatch(updateOrderAction(orderId));
-  invalidateBatchItemsResults(dispatch, orderId);
-};
-
-export const addOrderItemAction = (orderId: string, newItem: Item) => (dispatch: any) => {
-  dispatch(itemApi.util.updateQueryData(
-    'searchItems', { orderId }, (draftItems) => {
-      draftItems.push({ ...newItem, __isDirty: true });
-    }
-  ));
-  dispatch(updateOrderAction(
-    orderId,
-    (draftOrder) => { draftOrder.itemsCount = '...'; },
-  ));
-  invalidateBatchItemsResults(dispatch, orderId);
-};
-
-export const deleteOrderItemAction = (orderId: string, itemId: string) => (dispatch: any) => {
-  dispatch(itemApi.util.updateQueryData(
-    'searchItems', { orderId }, (draftItems) => {
-      const index = draftItems.findIndex(o => o.id === itemId);
-      if (index > -1) {
-        draftItems.splice(index, 1);
-      }
-    }
-  ));
-  dispatch(updateOrderAction(orderId));
-  invalidateBatchItemsResults(dispatch, orderId);
-};
-
-export const clearOrderItemsAction = (orderId: string) => (dispatch: any) => {
-  dispatch(itemApi.util.updateQueryData(
-    'searchItems', { orderId }, (draftItems) => {
-      draftItems.length = 0;
-    }
-  ));
-  dispatch(updateOrderAction(orderId));
-  invalidateBatchItemsResults(dispatch, orderId);
 };

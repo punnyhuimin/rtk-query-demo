@@ -3,32 +3,29 @@ import { useSelector } from 'react-redux';
 import { RootState } from 'app/store';
 
 interface ItemState {
-  initialOrderItemIds: Record<string, string[]>;
+  selectedItemId: string | undefined;
 }
 
 const initialState: ItemState = {
-  initialOrderItemIds: {},
+  selectedItemId: undefined,
 };
 
 export const itemSlice = createSlice({
   name: 'item',
   initialState,
   reducers: {
-    saveInitialOrderItemIds: (state, action: PayloadAction<{ orderId: string; itemIds: string[] }>) => {
-      const { orderId, itemIds } = action.payload;
-      state.initialOrderItemIds[orderId] = itemIds;
+    selectItemId: (state, action: PayloadAction<string>) => {
+      state.selectedItemId = action.payload;
     },
-    clearInitialOrderItemIds: (state, action: PayloadAction<string>) => {
-      const orderId = action.payload;
-      delete state.initialOrderItemIds[orderId];
+    clearSelectedItemId: (state) => {
+      state.selectedItemId = undefined;
     },
   },
 });
 
-export const { saveInitialOrderItemIds, clearInitialOrderItemIds: clearOrderItemIds } = itemSlice.actions;
+export const { selectItemId, clearSelectedItemId } = itemSlice.actions;
 
 export default itemSlice.reducer;
 
-export const useInitialOrderItemIds = (orderId: string) => useSelector(
-  (state: RootState) => state.item.initialOrderItemIds[orderId],
-);
+export const useSelectedItemId = () =>
+  useSelector((state: RootState) => state.item.selectedItemId);

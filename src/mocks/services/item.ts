@@ -8,7 +8,7 @@ import type { Item } from 'types';
 let items = getItems();
 
 const groupedByOrderId = (items: Item[]) => items.reduce<Record<string, Item[]>>((acc, item) => {
-  const orderId = item._orderId;
+  const orderId = item._parentId;
   if (!acc[orderId]) {
     acc[orderId] = [];
   }
@@ -32,7 +32,7 @@ const missionHandlers = [
       });
     }
     const newItems = (Array.isArray(body) ? body : [body])
-      .map(({ id = nanoid(), name }) => ({ id, name, _orderId: orderId }));
+      .map(({ id = nanoid(), name, warehouses = [] }) => ({ id, name, _parentId: orderId, warehouses }));
     items = merge(items, newItems, (a, b) => a.id === b.id);
     saveItems(items);
     await delay();
@@ -42,14 +42,14 @@ const missionHandlers = [
     const url = new URL(request.url);
     const orderId = url.searchParams.get('orderId');
     if (orderId) {
-      const result = items.filter(i => i._orderId === orderId);
+      const result = items.filter(i => i._parentId === orderId);
       return HttpResponse.json(result);
     }
 
     const body = await request.json() as { orderIds?: string[]; itemIds?: string[] } | null;
     const { orderIds = [], itemIds = [] } = body ?? {};
     const result = orderIds.length
-      ? groupedByOrderId(items.filter(i => orderIds.includes(i._orderId)))
+      ? groupedByOrderId(items.filter(i => orderIds.includes(i._parentId)))
       : items.filter(i => itemIds.includes(i.id));
     await delay();
     return HttpResponse.json(result);
@@ -67,7 +67,7 @@ const missionHandlers = [
 
     const originalCount = items.length;
     if (orderId) {
-      items = items.filter(i => i._orderId !== orderId);
+      items = items.filter(i => i._parentId !== orderId);
     } else {
       const parsed = JSON.parse(body) as string | string[];
       const idsToDelete = Array.isArray(parsed) ? parsed : [parsed];

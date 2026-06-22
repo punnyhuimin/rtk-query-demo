@@ -4,6 +4,7 @@ import { setupListeners } from '@reduxjs/toolkit/query';
 import { api } from 'features/api/apiSlice';
 import orderReducer from 'features/order/orderSlice';
 import itemReducer from 'features/item/itemSlice';
+import editsReducer from 'edits/editSlice';
 
 export const store = configureStore({
   devTools: process.env.NODE_ENV === 'development',
@@ -11,6 +12,7 @@ export const store = configureStore({
     [api.reducerPath]: api.reducer,
     order: orderReducer,
     item: itemReducer,
+    edits: editsReducer,
   },
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware().concat(api.middleware),

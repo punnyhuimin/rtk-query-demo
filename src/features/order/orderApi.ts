@@ -1,6 +1,5 @@
 import { api } from 'features/api/apiSlice';
 import { providesList } from 'features/api/utils';
-import { mergeRetainDirty } from 'mocks/services/utils';
 import type { Order } from 'types';
 
 export const orderApi = api.injectEndpoints({
@@ -9,10 +8,6 @@ export const orderApi = api.injectEndpoints({
       query: () => 'order',
       transformResponse: (orders: Order[]) => orders.map(o => ({ ...o, itemsCount: '...' })),
       providesTags: (result) => providesList(result ?? [], 'Order'),
-      merge: (currentCache, orders) => {
-        const newCache = currentCache.filter(curr => curr.__isDirty || orders.some(o => o.id === curr.id));
-        return mergeRetainDirty(newCache, orders, (curr, o) => curr.id === o.id);
-      },
     }),
     upsertOrder: builder.mutation<Order, Partial<Order>>({
       query: (order) => ({
@@ -21,14 +16,6 @@ export const orderApi = api.injectEndpoints({
         body: order,
       }),
       invalidatesTags: ['Order'],
-      async onQueryStarted(order, { dispatch }) {
-        dispatch(
-          orderApi.util.updateQueryData('getOrders', undefined, (draftOrders) => {
-            const index = draftOrders.findIndex(o => o.id === order.id);
-            if (index > -1) delete draftOrders[index].__isDirty;
-          }),
-        );
-      },
     }),
     deleteOrder: builder.mutation<Order, string>({
       query: (orderId) => ({
@@ -36,14 +23,6 @@ export const orderApi = api.injectEndpoints({
         method: 'DELETE',
       }),
       invalidatesTags: ['Order'],
-      async onQueryStarted(orderId, { dispatch }) {
-        dispatch(
-          orderApi.util.updateQueryData('getOrders', undefined, (draftOrders) => {
-            const index = draftOrders.findIndex(o => o.id === orderId);
-            delete draftOrders[index].__isDirty;
-          }),
-        );
-      },
     }),
   }),
 });
@@ -56,18 +35,3 @@ export const useGetOrderByIdQuery = (orderId: string | undefined) => useGetOrder
     data: orders?.find(o => o.id === orderId),
   }),
 });
-
-export const updateOrderAction = (
-  orderId: string,
-  editedOrderOrFn?: Partial<Order> | ((draft: Order) => void)
-) => orderApi.util.updateQueryData(
-  'getOrders', undefined, (draftOrders) => {
-    const index = draftOrders.findIndex(o => o.id === orderId);
-    if (typeof editedOrderOrFn === 'function') {
-      editedOrderOrFn(draftOrders[index]);
-    } else if (editedOrderOrFn !== undefined) {
-      draftOrders[index] = { ...draftOrders[index], ...editedOrderOrFn };
-    }
-    draftOrders[index].__isDirty = true;
-  }
-);

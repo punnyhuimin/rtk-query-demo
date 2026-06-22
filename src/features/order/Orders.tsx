@@ -1,14 +1,16 @@
 import { nanoid } from '@reduxjs/toolkit';
 import { useCallback, useRef } from 'react';
-import { useDispatch } from 'react-redux';
+import { useDispatch, useSelector } from 'react-redux';
 import { AgGridReact } from 'ag-grid-react';
 import type { CellEditRequestEvent } from 'ag-grid-community';
 
-import { useGetOrdersQuery, updateOrderAction, useUpsertOrderMutation } from 'features/order/orderApi';
+import { useGetOrdersQuery, useUpsertOrderMutation } from 'features/order/orderApi';
 import { itemApi } from 'features/item/itemApi';
-import { getEditedRowItem } from 'app/GridUtils';
+import { upsertPropertyEdit } from 'edits/editSlice';
+import { selectOrdersView } from 'edits/viewSelectors';
 import { selectOrderId, clearSelectedOrderId } from './orderSlice';
 import OrderCellRenderer from './OrderCellRenderer';
+import type { AppDispatch } from 'app/store';
 import type { Order } from 'types';
 
 const columnDefs = [
@@ -26,13 +28,21 @@ const rowSelection = {
 
 const Orders = () => {
   const gridRef = useRef<AgGridReact<Order>>(null);
-  const dispatch = useDispatch();
-  const { data } = useGetOrdersQuery();
+  const dispatch = useDispatch<AppDispatch>();
+
+  useGetOrdersQuery(); // trigger fetch; view is derived by selector
+  const ordersView = useSelector(selectOrdersView);
+
   const [upsertOrder] = useUpsertOrderMutation();
 
   const onCellEditRequest = useCallback((event: CellEditRequestEvent<Order>) => {
-    const editedOrder = getEditedRowItem(event);
-    dispatch(updateOrderAction(editedOrder.id, editedOrder));
+    const { data, colDef: { field }, newValue } = event;
+    dispatch(upsertPropertyEdit({
+      entityId: data!.id,
+      path: field!,
+      originalValue: (data as unknown as Record<string, unknown>)[field!],
+      editedValue: newValue,
+    }));
   }, [dispatch]);
 
   const onSelectionChanged = useCallback(() => {
@@ -68,7 +78,7 @@ const Orders = () => {
           <AgGridReact<Order>
             ref={gridRef}
             getRowId={(params) => params.data.id}
-            rowData={data}
+            rowData={ordersView}
             columnDefs={columnDefs}
             readOnlyEdit={true}
             onCellEditRequest={onCellEditRequest}
