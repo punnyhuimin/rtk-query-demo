@@ -1,4 +1,4 @@
-import { ModuleRegistry } from 'ag-grid-community'; 
+import { ModuleRegistry } from 'ag-grid-community';
 import {
   ClientSideRowModelModule,
   ValidationModule,
@@ -10,7 +10,7 @@ import {
   LargeTextEditorModule,
   SelectEditorModule,
   CustomEditorModule
-} from 'ag-grid-community'; 
+} from 'ag-grid-community';
 
 import './App.css';
 import Loading from './app/Loading';
@@ -29,7 +29,7 @@ ModuleRegistry.registerModules([
   LargeTextEditorModule,
   SelectEditorModule,
   CustomEditorModule,
- ]); 
+]);
 
 function App() {
   const isLoading = useIsLoading();

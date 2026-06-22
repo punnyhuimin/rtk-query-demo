@@ -9,7 +9,7 @@ jest.mock('../../app/store', () => ({
 }));
 
 describe('itemApi', () => {
-  let mockStore;
+  let mockStore: ReturnType<typeof setupStore>;
   const initialState = {
     api: {
       queries: {
@@ -20,20 +20,19 @@ describe('itemApi', () => {
             { id: '2', name: 'Item 2' },
           ],
         },
-      }
-    }
+      },
+    },
   };
 
   beforeEach(() => {
-    // Mock store imported by application.
     mockStore = setupStore(initialState);
-    store.getState.mockReturnValue(mockStore.getState());
+    (store.getState as jest.Mock).mockReturnValue(mockStore.getState());
   });
 
   it.only('searchItems should have data from cache', async () => {
     const { data } = await mockStore.dispatch(
-      itemApi.endpoints.searchItems.initiate({ orderId: "xxx" })
+      itemApi.endpoints.searchItems.initiate({ orderId: 'xxx' })
     );
-    expect(data.length).toBe(2);
+    expect(data!.length).toBe(2);
   });
 });

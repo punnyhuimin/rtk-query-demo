@@ -1,7 +1,8 @@
-import { useCallback, useRef } from "react";
-import { useDispatch } from "react-redux";
-import { AgGridReact } from "ag-grid-react";
-import { nanoid } from "@reduxjs/toolkit";
+import { useCallback, useRef } from 'react';
+import { useDispatch } from 'react-redux';
+import { AgGridReact } from 'ag-grid-react';
+import { nanoid } from '@reduxjs/toolkit';
+import type { CellEditRequestEvent } from 'ag-grid-community';
 
 import {
   useGetOrderItemsQuery,
@@ -11,40 +12,41 @@ import {
 } from 'features/item/itemApi';
 import { useSelectedOrder } from 'features/order/orderSlice';
 import { getEditedRowItem } from 'app/GridUtils';
-import ItemCellRenderer from "./ItemCellRenderer";
+import ItemCellRenderer from './ItemCellRenderer';
+import type { Item } from 'types';
 
 const columnDefs = [
-  { field: "id" },
-  { field: "name", editable: true, sortable: true },
-  { headerName: "Actions", cellRenderer: ItemCellRenderer },
+  { field: 'id' },
+  { field: 'name', editable: true, sortable: true },
+  { headerName: 'Actions', cellRenderer: ItemCellRenderer },
 ];
 
 const rowSelection = {
-  mode: "multiRow",
+  mode: 'multiRow',
   checkboxes: false,
   headerCheckbox: false,
   enableClickSelection: true,
 };
 
 const Items = () => {
-  const gridRef = useRef();
+  const gridRef = useRef<AgGridReact<Item>>(null);
   const dispatch = useDispatch();
 
   const { data: selectedOrder } = useSelectedOrder();
   const { data: items } = useGetOrderItemsQuery(selectedOrder?.id);
 
-  const onCellEditRequest = useCallback((event) => {
-    const editedItem = getEditedRowItem(event, true);
-    dispatch(editOrderItemAction(selectedOrder.id, editedItem));
-  }, [dispatch, selectedOrder?.id]);
+  const onCellEditRequest = useCallback((event: CellEditRequestEvent<Item>) => {
+    const editedItem = getEditedRowItem(event);
+    dispatch(editOrderItemAction(selectedOrder!.id, editedItem));
+  }, [dispatch, selectedOrder]);
 
   const addOrderItem = useCallback(() => {
-    const newItem = { id: nanoid(), name: 'new item', _orderId: selectedOrder.id };
-    dispatch(addOrderItemAction(selectedOrder.id, newItem));
+    const newItem: Item = { id: nanoid(), name: 'new item', _orderId: selectedOrder!.id };
+    dispatch(addOrderItemAction(selectedOrder!.id, newItem));
   }, [dispatch, selectedOrder]);
 
   const clearItems = useCallback(() => {
-    dispatch(clearOrderItemsAction(selectedOrder.id));
+    dispatch(clearOrderItemsAction(selectedOrder!.id));
   }, [dispatch, selectedOrder]);
 
   return (
@@ -55,17 +57,16 @@ const Items = () => {
           <button onClick={clearItems}>Clear Data</button>
         </div>
         <div className="ag-theme-alpine" style={{ flexGrow: '1' }}>
-          <AgGridReact
+          <AgGridReact<Item>
             ref={gridRef}
             getRowId={(params) => params.data.id}
             rowData={items}
             columnDefs={columnDefs}
             animateRows={true}
-            // Set readOnlyEdit to true to fire onCellEditRequest as rowData is immutable
             readOnlyEdit={true}
             onCellEditRequest={onCellEditRequest}
             rowSelection={rowSelection}
-            />
+          />
         </div>
       </div>
     </div>

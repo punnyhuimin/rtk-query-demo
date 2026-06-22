@@ -8,7 +8,7 @@ export default defineConfig({
     template: "./public/index.html",
   },
   source: {
-    tsconfigPath: './jsconfig.json',
+    tsconfigPath: './tsconfig.json',
   },
   output: {
     polyfill: "usage",

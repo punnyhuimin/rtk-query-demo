@@ -4,6 +4,6 @@ const Loading = () => {
       <div style={{ display: 'table-cell', verticalAlign: 'middle' }}>Loading</div>
     </div>
   );
-}
+};
 
 export default Loading;

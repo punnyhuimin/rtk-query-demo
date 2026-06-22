@@ -4,4 +4,4 @@ import itemHandlers from './services/item';
 export const handlers = [
   ...orderHandlers,
   ...itemHandlers,
-]
+];

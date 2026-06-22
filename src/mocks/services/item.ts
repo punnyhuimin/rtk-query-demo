@@ -3,81 +3,60 @@ import { nanoid } from '@reduxjs/toolkit';
 
 import { getItems, saveItems } from 'mocks/data';
 import { merge } from './utils';
+import type { Item } from 'types';
 
 let items = getItems();
 
-const groupedByOrderId = (items) => items.reduce((acc, item) => {
+const groupedByOrderId = (items: Item[]) => items.reduce<Record<string, Item[]>>((acc, item) => {
   const orderId = item._orderId;
-  
-  // If the orderId doesn't exist in the accumulator, create an array for it
   if (!acc[orderId]) {
     acc[orderId] = [];
   }
-  
-  // Push the current item to its orderId array
   acc[orderId].push(item);
-  
   return acc;
 }, {});
-
 
 const missionHandlers = [
   http.get('/api/v1/item', async () => {
     await delay();
     return HttpResponse.json(items);
   }),
-  /*
-  http.get('/api/v1/item/:id', ({ params: { id } }) => {
-    const item = items.find(m => m.id === id);
-    return item ? HttpResponse.json(item) : new HttpResponse(null, {
-      status: 404,
-      statusText: 'Item not found',
-    });
-  }),
-  */
-  // Upsert items: /api/v1/item?orderId=1
   http.put('/api/v1/item', async ({ request }) => {
     const url = new URL(request.url);
-
-    const orderId = url.searchParams.get('orderId')
-    const body = await request.json();
+    const orderId = url.searchParams.get('orderId');
+    const body = await request.json() as Item | Item[] | null;
     if (!body || !orderId) {
       return new HttpResponse(null, {
         status: 400,
         statusText: 'No data',
       });
     }
-    // Remove extra fields and generate id if required and force orderId value
     const newItems = (Array.isArray(body) ? body : [body])
-      .map(({ id = nanoid(), name }) => ({id, name, _orderId: orderId }));
+      .map(({ id = nanoid(), name }) => ({ id, name, _orderId: orderId }));
     items = merge(items, newItems, (a, b) => a.id === b.id);
     saveItems(items);
     await delay();
     return HttpResponse.json(newItems);
   }),
-  // POST `/api/v1/searchItems?orderId=1` to search by items by order
-  // POST `/api/v1/searchItems` with { orderIds: [], itemIds: [] } array body to search by Ids
   http.post('/api/v1/searchItems', async ({ request }) => {
     const url = new URL(request.url);
-    const orderId = url.searchParams.get('orderId')
+    const orderId = url.searchParams.get('orderId');
     if (orderId) {
       const result = items.filter(i => i._orderId === orderId);
       return HttpResponse.json(result);
     }
 
-    const { orderIds = [], itemIds = [] } = await request.json() || {};
-    const result = orderIds
+    const body = await request.json() as { orderIds?: string[]; itemIds?: string[] } | null;
+    const { orderIds = [], itemIds = [] } = body ?? {};
+    const result = orderIds.length
       ? groupedByOrderId(items.filter(i => orderIds.includes(i._orderId)))
-      : items.filter(i => itemIds.includes(i.id))
+      : items.filter(i => itemIds.includes(i.id));
     await delay();
     return HttpResponse.json(result);
   }),
-  // DELETE `/api/v1/item?orderId=1` to delete all order items
-  // DELETE `/api/v1/item` with itemId(s) in body
   http.delete('/api/v1/item', async ({ request }) => {
     const url = new URL(request.url);
-
-    const orderId = url.searchParams.get('orderId')
+    const orderId = url.searchParams.get('orderId');
     let body = await request.text();
     if (!body && !orderId) {
       return new HttpResponse(null, {
@@ -88,19 +67,17 @@ const missionHandlers = [
 
     const originalCount = items.length;
     if (orderId) {
-      // Delete by orderID
       items = items.filter(i => i._orderId !== orderId);
     } else {
-      // Delete by itemIds
-      body = JSON.parse(body);
-      const idsToDelete = Array.isArray(body) ? body : [body];
+      const parsed = JSON.parse(body) as string | string[];
+      const idsToDelete = Array.isArray(parsed) ? parsed : [parsed];
       items = items.filter(i => !idsToDelete.some(id => id === i.id));
     }
 
     saveItems(items);
     await delay();
-    return HttpResponse.json({ deleteCount: originalCount - items.length});
+    return HttpResponse.json({ deleteCount: originalCount - items.length });
   }),
-]
+];
 
 export default missionHandlers;
