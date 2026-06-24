@@ -1,32 +1,32 @@
 import { useGetOrderByIdQuery, useUpsertOrderMutation, useDeleteOrderMutation } from './orderApi';
 import {
-  useSearchItemsQueryState,
-  useDeleteOrderItemsMutation,
-  useUpsertAndDeleteOrderItemsMutation,
-} from 'features/item/itemApi';
-import { useInitialOrderItemIds } from 'features/item/itemSlice';
+  useSearchVehiclesQueryState,
+  useDeleteOrderVehiclesMutation,
+  useUpsertAndDeleteOrderVehiclesMutation,
+} from 'features/vehicle/vehicleApi';
+import { useInitialOrderVehicleIds } from 'features/vehicle/vehicleSlice';
 import type { CustomCellRendererProps } from 'ag-grid-community';
 import type { Order } from 'types';
 
 const OrderCellRenderer = ({ data }: CustomCellRendererProps<Order>) => {
   const { data: order } = useGetOrderByIdQuery(data!.id);
-  const { data: items } = useSearchItemsQueryState({ orderId: data!.id });
-  const initialItemIds = useInitialOrderItemIds(data!.id);
+  const { data: vehicles } = useSearchVehiclesQueryState({ orderId: data!.id });
+  const initialVehicleIds = useInitialOrderVehicleIds(data!.id);
 
   const [upsertOrder] = useUpsertOrderMutation();
   const [deleteOrder] = useDeleteOrderMutation();
-  const [deleteOrderItems] = useDeleteOrderItemsMutation();
-  const [upsertAndDeleteOrderItems] = useUpsertAndDeleteOrderItemsMutation();
+  const [deleteOrderVehicles] = useDeleteOrderVehiclesMutation();
+  const [upsertAndDeleteOrderVehicles] = useUpsertAndDeleteOrderVehiclesMutation();
 
   const saveOrderHandler = async () => {
     try {
-      const deletedIds = initialItemIds?.filter(id => !items?.some(i => i.id === id)) ?? [];
-      const editedItems = items?.filter(i => i.__isDirty) ?? [];
+      const deletedIds = initialVehicleIds?.filter(id => !vehicles?.some(v => v.id === id)) ?? [];
+      const editedVehicles = vehicles?.filter(v => v.__isDirty) ?? [];
       await Promise.all([
         upsertOrder(order!).unwrap(),
-        upsertAndDeleteOrderItems({
+        upsertAndDeleteOrderVehicles({
           orderId: data!.id,
-          upsertItems: editedItems,
+          upsertVehicles: editedVehicles,
           deleteIds: deletedIds,
         }).unwrap(),
       ]);
@@ -39,7 +39,7 @@ const OrderCellRenderer = ({ data }: CustomCellRendererProps<Order>) => {
     try {
       await Promise.all([
         deleteOrder(data!.id).unwrap(),
-        deleteOrderItems(data!.id).unwrap(),
+        deleteOrderVehicles(data!.id).unwrap(),
       ]);
     } catch (error) {
       console.log(error);
@@ -50,7 +50,7 @@ const OrderCellRenderer = ({ data }: CustomCellRendererProps<Order>) => {
     <span>
       <button
         onClick={() => saveOrderHandler()}
-        disabled={!order?.__isDirty || !items}
+        disabled={!order?.__isDirty || !vehicles}
       >
         Save
       </button>

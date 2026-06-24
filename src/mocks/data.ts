@@ -1,5 +1,5 @@
 import { nanoid } from 'nanoid';
-import type { Order, Item } from 'types';
+import type { Order, Vehicle } from 'types';
 
 const orders: Order[] = [
   { id: nanoid(), name: 'order1' },
@@ -7,24 +7,24 @@ const orders: Order[] = [
   { id: nanoid(), name: 'order3' },
 ];
 
-const items: Item[] = [
-  { id: nanoid(), name: 'item1', _orderId: orders[1].id },
-  { id: nanoid(), name: 'item2', _orderId: orders[1].id },
-  { id: nanoid(), name: 'item3', _orderId: orders[2].id },
-  { id: nanoid(), name: 'item4', _orderId: orders[2].id },
-  { id: nanoid(), name: 'item5', _orderId: orders[2].id },
+const vehicles: Vehicle[] = [
+  { id: nanoid(), name: 'vehicle1', _orderId: orders[1].id, engines: [] },
+  { id: nanoid(), name: 'vehicle2', _orderId: orders[1].id, engines: [] },
+  { id: nanoid(), name: 'vehicle3', _orderId: orders[2].id, engines: [] },
+  { id: nanoid(), name: 'vehicle4', _orderId: orders[2].id, engines: [] },
+  { id: nanoid(), name: 'vehicle5', _orderId: orders[2].id, engines: [] },
 ];
 
 export const saveOrders = (orders: Order[]) => localStorage.setItem('order', JSON.stringify(orders));
-export const saveItems = (items: Item[]) => localStorage.setItem('item', JSON.stringify(items));
+export const saveVehicles = (vehicles: Vehicle[]) => localStorage.setItem('vehicle', JSON.stringify(vehicles));
 
 if (!localStorage.getItem('order')) {
   localStorage.setItem('order', JSON.stringify(orders));
 }
 
-if (!localStorage.getItem('item')) {
-  localStorage.setItem('item', JSON.stringify(items));
+if (!localStorage.getItem('vehicle')) {
+  localStorage.setItem('vehicle', JSON.stringify(vehicles));
 }
 
 export const getOrders = (): Order[] => JSON.parse(localStorage.getItem('order') ?? '[]');
-export const getItems = (): Item[] => JSON.parse(localStorage.getItem('item') ?? '[]');
+export const getVehicles = (): Vehicle[] => JSON.parse(localStorage.getItem('vehicle') ?? '[]');

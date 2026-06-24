@@ -5,7 +5,7 @@ import { AgGridReact } from 'ag-grid-react';
 import type { CellEditRequestEvent } from 'ag-grid-community';
 
 import { useGetOrdersQuery, updateOrderAction, useUpsertOrderMutation } from 'features/order/orderApi';
-import { itemApi } from 'features/item/itemApi';
+import { vehicleApi } from 'features/vehicle/vehicleApi';
 import { getEditedRowItem } from 'app/GridUtils';
 import { selectOrderId, clearSelectedOrderId } from './orderSlice';
 import OrderCellRenderer from './OrderCellRenderer';
@@ -14,7 +14,7 @@ import type { Order } from 'types';
 const columnDefs = [
   { field: 'id' },
   { field: 'name', editable: true, sortable: true },
-  { field: 'itemsCount', sortable: true },
+  { field: 'vehicleCount', sortable: true },
   { headerName: 'Save', cellRenderer: OrderCellRenderer },
 ];
 
@@ -54,7 +54,7 @@ const Orders = () => {
   }, [upsertOrder]);
 
   const test = () => {
-    dispatch(itemApi.endpoints.searchItemsBatch.initiate({ orderIds: ['ri6CHMGrjxpxN4dkO0g24', 'bq9oe9MrLaNA5PSgqTC8h'] }));
+    dispatch(vehicleApi.endpoints.searchVehiclesBatch.initiate({ orderIds: ['ri6CHMGrjxpxN4dkO0g24', 'bq9oe9MrLaNA5PSgqTC8h'] }));
   };
 
   return (

@@ -15,7 +15,7 @@ import {
 import './App.css';
 import Loading from './app/Loading';
 import Orders from './features/order/Orders';
-import Items from './features/item/Items';
+import Vehicles from './features/vehicle/Vehicles';
 import { useIsLoading } from './features/api/utils';
 
 ModuleRegistry.registerModules([
@@ -38,8 +38,8 @@ function App() {
       { isLoading && <Loading />}
       <h1>Orders</h1>
       <Orders />
-      <h1>Items</h1>
-      <Items />
+      <h1>Vehicles</h1>
+      <Vehicles />
     </div>
   );
 }

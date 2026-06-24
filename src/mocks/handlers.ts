@@ -1,7 +1,7 @@
 import orderHandlers from './services/order';
-import itemHandlers from './services/item';
+import vehicleHandlers from './services/vehicle';
 
 export const handlers = [
   ...orderHandlers,
-  ...itemHandlers,
+  ...vehicleHandlers,
 ];

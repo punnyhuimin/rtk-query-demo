@@ -7,7 +7,7 @@ export const orderApi = api.injectEndpoints({
   endpoints: (builder) => ({
     getOrders: builder.query<Order[], void>({
       query: () => 'order',
-      transformResponse: (orders: Order[]) => orders.map(o => ({ ...o, itemsCount: '...' })),
+      transformResponse: (orders: Order[]) => orders.map(o => ({ ...o, vehicleCount: '...' })),
       providesTags: (result) => providesList(result ?? [], 'Order'),
       merge: (currentCache, orders) => {
         const newCache = currentCache.filter(curr => curr.__isDirty || orders.some(o => o.id === curr.id));
