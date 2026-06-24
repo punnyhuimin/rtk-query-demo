@@ -1,9 +1,22 @@
 import { api } from 'features/api/apiSlice';
-import { updateOrderAction } from 'features/order/orderApi';
 import { providesId } from 'features/api/utils';
 import { saveInitialOrderVehicleIds } from './vehicleSlice';
 import { store } from 'app/store';
+import type { RootState } from 'app/store';
 import type { Vehicle } from 'types';
+import { EntityType, entityKey } from 'types/EntityType';
+import type { EditableValue } from 'types/EditableValue';
+import {
+  createOrUpdateEdit,
+  clearEntityEdits,
+  addEntityEdit,
+  removeEntityAddition,
+  addEntityDeletion,
+  clearParentEdits,
+} from 'edits/editActions';
+
+const vehicleEntityKey = (id: string) => entityKey(EntityType.VEHICLE, id);
+const orderEntityKey = (orderId: string) => entityKey(EntityType.ORDER, orderId);
 
 const invalidatesTags = (_result: unknown, _error: unknown, arg: any) => [
   { type: 'OrderVehicles' as const, id: arg.orderId ?? arg },
@@ -135,49 +148,39 @@ const invalidateBatchVehiclesResults = (dispatch: (action: unknown) => void, ord
   dispatch(api.util.invalidateTags([{ type: 'OrderVehiclesBatch', id: orderId }]));
 };
 
-export const editOrderVehicleAction = (orderId: string, editedVehicle: Vehicle) => (dispatch: any) => {
-  dispatch(vehicleApi.util.updateQueryData(
-    'searchVehicles', { orderId }, (draftVehicles) => {
-      const index = draftVehicles.findIndex(v => v.id === editedVehicle.id);
-      draftVehicles[index] = { ...editedVehicle, __isDirty: true };
-    }
-  ));
-  dispatch(updateOrderAction(orderId));
-  invalidateBatchVehiclesResults(dispatch, orderId);
+export const editOrderVehicleAction = (
+  vehicleId: string,
+  path: string,
+  originalValue: EditableValue,
+  editedValue: EditableValue,
+) => (dispatch: any) => {
+  dispatch(createOrUpdateEdit({
+    entityKey: vehicleEntityKey(vehicleId),
+    path,
+    originalValue,
+    editedValue,
+  }));
 };
 
 export const addOrderVehicleAction = (orderId: string, newVehicle: Vehicle) => (dispatch: any) => {
-  dispatch(vehicleApi.util.updateQueryData(
-    'searchVehicles', { orderId }, (draftVehicles) => {
-      draftVehicles.push({ ...newVehicle, __isDirty: true });
-    }
-  ));
-  dispatch(updateOrderAction(
-    orderId,
-    (draftOrder) => { draftOrder.vehicleCount = '...'; },
-  ));
-  invalidateBatchVehiclesResults(dispatch, orderId);
+  dispatch(addEntityEdit({ parentKey: orderEntityKey(orderId), entity: newVehicle }));
 };
 
-export const deleteOrderVehicleAction = (orderId: string, vehicleId: string) => (dispatch: any) => {
-  dispatch(vehicleApi.util.updateQueryData(
-    'searchVehicles', { orderId }, (draftVehicles) => {
-      const index = draftVehicles.findIndex(v => v.id === vehicleId);
-      if (index > -1) {
-        draftVehicles.splice(index, 1);
-      }
-    }
-  ));
-  dispatch(updateOrderAction(orderId));
-  invalidateBatchVehiclesResults(dispatch, orderId);
+export const deleteOrderVehicleAction = (orderId: string, vehicleId: string) => (dispatch: any, getState: () => RootState) => {
+  const additions = getState().edits.additions[orderEntityKey(orderId)] ?? [];
+  const isLocalAddition = additions.some((v: Vehicle) => v.id === vehicleId);
+
+  if (isLocalAddition) {
+    dispatch(removeEntityAddition({ parentKey: orderEntityKey(orderId), entityId: vehicleId }));
+  } else {
+    dispatch(addEntityDeletion({ parentKey: orderEntityKey(orderId), entityId: vehicleId }));
+    dispatch(clearEntityEdits(vehicleEntityKey(vehicleId)));
+  }
 };
 
-export const clearOrderVehiclesAction = (orderId: string) => (dispatch: any) => {
-  dispatch(vehicleApi.util.updateQueryData(
-    'searchVehicles', { orderId }, (draftVehicles) => {
-      draftVehicles.length = 0;
-    }
-  ));
-  dispatch(updateOrderAction(orderId));
+export const clearOrderVehiclesAction = (orderId: string) => (dispatch: any, getState: () => RootState) => {
+  const { data: serverVehicles } = vehicleApi.endpoints.searchVehicles.select({ orderId })(getState());
+  serverVehicles?.forEach(v => dispatch(clearEntityEdits(vehicleEntityKey(v.id))));
+  dispatch(clearParentEdits(orderEntityKey(orderId)));
   invalidateBatchVehiclesResults(dispatch, orderId);
 };

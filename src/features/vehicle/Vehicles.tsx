@@ -1,5 +1,5 @@
-import { useCallback, useRef } from 'react';
-import { useDispatch } from 'react-redux';
+import { useCallback, useMemo, useRef } from 'react';
+import { useDispatch, useSelector } from 'react-redux';
 import { AgGridReact } from 'ag-grid-react';
 import { nanoid } from '@reduxjs/toolkit';
 import type { CellEditRequestEvent } from 'ag-grid-community';
@@ -11,7 +11,9 @@ import {
   clearOrderVehiclesAction,
 } from 'features/vehicle/vehicleApi';
 import { useSelectedOrder } from 'features/order/orderSlice';
-import { getEditedRowItem } from 'app/GridUtils';
+import { buildEntityView } from 'selectors/viewSelectors';
+import { EntityType, entityKey } from 'types/EntityType';
+import type { RootState } from 'app/store';
 import VehicleCellRenderer from './VehicleCellRenderer';
 import type { Vehicle } from 'types';
 
@@ -33,12 +35,26 @@ const Vehicles = () => {
   const dispatch = useDispatch();
 
   const { data: selectedOrder } = useSelectedOrder();
-  const { data: vehicles } = useGetOrderVehiclesQuery(selectedOrder?.id);
+  const orderId = selectedOrder?.id;
+  const { data: serverVehicles } = useGetOrderVehiclesQuery(orderId);
+
+  const allEdits = useSelector((state: RootState) => state.edits);
+  const vehicles = useMemo(() => {
+    const orderKey = orderId ? entityKey(EntityType.ORDER, orderId) : undefined;
+    const pendingDeleteIds: string[] = orderKey ? (allEdits.deletions[orderKey] ?? []) : [];
+    const localAdditions: Vehicle[] = orderKey ? (allEdits.additions[orderKey] ?? []) : [];
+
+    const serverWithEdits = (serverVehicles ?? [])
+      .filter(v => !pendingDeleteIds.includes(v.id))
+      .map(v => buildEntityView(v, allEdits.fields[entityKey(EntityType.VEHICLE, v.id)] ?? {}));
+
+    return [...serverWithEdits, ...localAdditions];
+  }, [serverVehicles, allEdits, orderId]);
 
   const onCellEditRequest = useCallback((event: CellEditRequestEvent<Vehicle>) => {
-    const editedVehicle = getEditedRowItem(event);
-    dispatch(editOrderVehicleAction(selectedOrder!.id, editedVehicle));
-  }, [dispatch, selectedOrder]);
+    const { data, colDef: { field }, oldValue, newValue } = event;
+    dispatch(editOrderVehicleAction(data!.id, field!, oldValue, newValue));
+  }, [dispatch]);
 
   const addOrderVehicle = useCallback(() => {
     const newVehicle: Vehicle = { id: nanoid(), name: 'new vehicle', _orderId: selectedOrder!.id, engines: [] };
@@ -46,8 +62,8 @@ const Vehicles = () => {
   }, [dispatch, selectedOrder]);
 
   const clearVehicles = useCallback(() => {
-    dispatch(clearOrderVehiclesAction(selectedOrder!.id));
-  }, [dispatch, selectedOrder]);
+    if (orderId) dispatch(clearOrderVehiclesAction(orderId));
+  }, [dispatch, orderId]);
 
   return (
     <div style={{ height: '400px', width: '100%' }}>

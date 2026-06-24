@@ -33,7 +33,7 @@ RTK Query Cache
         +
 
 User Edits
-(Client Overlay)
+(Redux store)
 
         ↓
 
@@ -70,6 +70,8 @@ All UI components consume merged view state.
 ---
 
 # Redux Store Structure
+
+Entity ID is the enum Entity. E.g. ORDER, VEHICLE, ENGINE.
 
 ```ts
 {

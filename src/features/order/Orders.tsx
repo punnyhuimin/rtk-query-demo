@@ -1,14 +1,17 @@
 import { nanoid } from '@reduxjs/toolkit';
-import { useCallback, useRef } from 'react';
-import { useDispatch } from 'react-redux';
+import { useCallback, useMemo, useRef } from 'react';
+import { useDispatch, useSelector } from 'react-redux';
 import { AgGridReact } from 'ag-grid-react';
 import type { CellEditRequestEvent } from 'ag-grid-community';
 
-import { useGetOrdersQuery, updateOrderAction, useUpsertOrderMutation } from 'features/order/orderApi';
+import { useGetOrdersQuery, useUpsertOrderMutation } from 'features/order/orderApi';
 import { vehicleApi } from 'features/vehicle/vehicleApi';
-import { getEditedRowItem } from 'app/GridUtils';
 import { selectOrderId, clearSelectedOrderId } from './orderSlice';
 import OrderCellRenderer from './OrderCellRenderer';
+import { buildEntityView } from 'selectors/viewSelectors';
+import { createOrUpdateEdit } from 'edits/editActions';
+import { EntityType, entityKey } from 'types/EntityType';
+import type { RootState } from 'app/store';
 import type { Order } from 'types';
 
 const columnDefs = [
@@ -27,12 +30,23 @@ const rowSelection = {
 const Orders = () => {
   const gridRef = useRef<AgGridReact<Order>>(null);
   const dispatch = useDispatch();
-  const { data } = useGetOrdersQuery();
+  const { data: serverOrders } = useGetOrdersQuery();
   const [upsertOrder] = useUpsertOrderMutation();
 
+  const allEdits = useSelector((state: RootState) => state.edits);
+  const orders = useMemo(
+    () => serverOrders?.map(o => buildEntityView(o, allEdits.fields[entityKey(EntityType.ORDER, o.id)] ?? {})),
+    [serverOrders, allEdits],
+  );
+
   const onCellEditRequest = useCallback((event: CellEditRequestEvent<Order>) => {
-    const editedOrder = getEditedRowItem(event);
-    dispatch(updateOrderAction(editedOrder.id, editedOrder));
+    const { data, colDef: { field }, oldValue, newValue } = event;
+    dispatch(createOrUpdateEdit({
+      entityKey: entityKey(EntityType.ORDER, data!.id),
+      path: field!,
+      originalValue: oldValue,
+      editedValue: newValue,
+    }));
   }, [dispatch]);
 
   const onSelectionChanged = useCallback(() => {
@@ -68,7 +82,7 @@ const Orders = () => {
           <AgGridReact<Order>
             ref={gridRef}
             getRowId={(params) => params.data.id}
-            rowData={data}
+            rowData={orders}
             columnDefs={columnDefs}
             readOnlyEdit={true}
             onCellEditRequest={onCellEditRequest}
