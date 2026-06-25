@@ -1,41 +1,84 @@
-import type { FieldEdit, ImmerPatch } from 'types/CacheDiff';
+import { compare, getValueByPointer } from 'fast-json-patch';
+import type { AddOperation, RemoveOperation, ReplaceOperation } from 'fast-json-patch';
+import type { FieldEdit } from 'types/CacheDiff';
 
-function getAtSegments(obj: unknown, segments: (string | number)[]): unknown {
-  return segments.reduce<unknown>((node, seg) => {
-    if (node == null) return undefined;
-    return (node as Record<string | number, unknown>)[seg];
-  }, obj);
+type DiffOperation = AddOperation<unknown> | RemoveOperation | ReplaceOperation<unknown>;
+
+/**
+ * Uses fast-json-patch compare() to produce a deep, field-level diff between
+ * two entity snapshots. compare() only emits add / remove / replace, so the
+ * type-narrowing filter is both a TS guard and a runtime safety net.
+ */
+function decomposeEntityDiff<T extends object>(
+  idPart: string,
+  before: T,
+  after: T,
+): FieldEdit[] {
+  return compare(before, after)
+    .filter((op): op is DiffOperation =>
+      op.op === 'add' || op.op === 'remove' || op.op === 'replace'
+    )
+    .map(rfcOp => ({
+      path: `${idPart}${rfcOp.path}`,
+      op: rfcOp.op,
+      before: getValueByPointer(before, rfcOp.path),
+      after: 'value' in rfcOp ? rfcOp.value : undefined,
+    }));
 }
 
 /**
- * Converts Immer array-index patches to id-based FieldEdits.
+ * Produces stable, id-based FieldEdits by comparing cacheBefore and cacheAfter
+ * directly — rather than interpreting Immer's raw index patches.
  *
- * An Immer patch for an array looks like:
- *   { op: 'replace', path: [3, 'name'], value: 'new' }
+ * Why not use Immer patches?
+ * For array.splice(i, 1), Immer emits SHIFT patches (replaces elements at each
+ * position after i, then removes the last slot). Those patches don't say "entity
+ * X was deleted at index N", making position-correct undo impossible from patches
+ * alone. Comparing the two snapshots gives us the semantic intent directly.
  *
- * We convert path[0] (the array index) to "[id=<entity.id>]" using cacheBefore,
- * so the recorded path is "[id=abc]/name" — stable under reordering.
+ * Three kinds of FieldEdit produced:
+ *   remove  — entity present in before, absent in after  (index = original position)
+ *   add     — entity absent in before, present in after  (index = position in after)
+ *   field   — entity present in both but reference changed; deep-diffed per field
  */
 export function convertToIdPaths<T extends { id: string }>(
   cacheBefore: T[],
-  patches: ImmerPatch[],
+  cacheAfter: T[],
 ): FieldEdit[] {
-  return patches.map(patch => {
-    const [indexSeg, ...fieldSegs] = patch.path;
-    const entity = cacheBefore[Number(indexSeg)];
+  const result: FieldEdit[] = [];
 
-    const idPart = entity?.id != null
-      ? `[id=${entity.id}]`
-      : `[${String(indexSeg)}]`; // fallback when entity has no id
+  const afterById = new Map(cacheAfter.map((e, i) => [e.id, { entity: e, index: i }]));
+  const beforeIds = new Set(cacheBefore.map(e => e.id));
 
-    const fieldStr = fieldSegs.map(String).join('/');
-    const fullPath = fieldStr ? `${idPart}/${fieldStr}` : idPart;
-
-    return {
-      path: fullPath,
-      op: patch.op,
-      before: getAtSegments(entity, fieldSegs),
-      after: 'value' in patch ? patch.value : undefined,
-    };
+  // Removals and field-level changes
+  cacheBefore.forEach((entity, index) => {
+    const afterEntry = afterById.get(entity.id);
+    if (!afterEntry) {
+      result.push({
+        path: `[id=${entity.id}]`,
+        op: 'remove',
+        before: entity,
+        after: undefined,
+        index,
+      });
+    } else if (afterEntry.entity !== entity) {
+      // Reference changed — deep diff at field level
+      result.push(...decomposeEntityDiff(`[id=${entity.id}]`, entity, afterEntry.entity));
+    }
   });
+
+  // Additions
+  cacheAfter.forEach((entity, index) => {
+    if (!beforeIds.has(entity.id)) {
+      result.push({
+        path: `[id=${entity.id}]`,
+        op: 'add',
+        before: undefined,
+        after: entity,
+        index,
+      });
+    }
+  });
+
+  return result;
 }

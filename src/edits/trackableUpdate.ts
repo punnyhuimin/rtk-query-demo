@@ -3,22 +3,30 @@ import { api } from 'features/api/apiSlice';
 import { historyActions } from './historySlice';
 import { convertToIdPaths } from 'patches/convertToIdPaths';
 import { resolvePath } from 'patches/resolvePath';
-import type { CacheDiff, FieldEdit, ImmerPatch } from 'types/CacheDiff';
+import type { CacheDiff, FieldEdit, Patch } from 'types/CacheDiff';
 
 type PatchCollection = {
-  patches: ImmerPatch[];
-  inversePatches: ImmerPatch[];
+  patches: Patch[];
+  inversePatches: Patch[];
   undo: () => void;
 };
 
 let _seq = 0;
 const newDiffId = () => `d${(++_seq).toString(36)}-${Date.now().toString(36)}`;
 
+const selectCache = (endpointName: string, arg: unknown, state: RootState) =>
+  ((api.endpoints as Record<string, any>)[endpointName]?.select(arg)(state).data ?? []) as Array<{ id: string }>;
+
 /**
  * Drop-in replacement for api.util.updateQueryData that additionally:
- *   1. Snapshots the cache before the update
- *   2. Converts Immer array-index patches to stable id-based FieldEdits
+ *   1. Snapshots cacheBefore and cacheAfter around the mutation
+ *   2. Diffs the two snapshots into stable id-based FieldEdits
  *   3. Pushes a CacheDiff onto history (buffered into the open transaction if any)
+ *
+ * We snapshot before+after rather than relying on Immer's raw patches because
+ * array.splice() emits shift patches (element replacements + a final remove),
+ * not a clean "entity X deleted at index N". The before/after comparison gives
+ * us the semantic intent — including the original index for position-correct undo.
  *
  * To group multiple calls into one undoable unit, wrap with:
  *   dispatch(historyActions.beginTransaction());
@@ -32,23 +40,30 @@ export const trackableUpdateQueryData = (
   recipe: (draft: any) => void,
 ) =>
   (dispatch: AppDispatch, getState: () => RootState): PatchCollection => {
-    const cacheBefore = (
-      (api.endpoints as Record<string, any>)[endpointName]?.select(arg)(getState()).data ?? []
-    ) as Array<{ id: string }>;
+    const cacheBefore = selectCache(endpointName, arg, getState());
 
     const patchCollection = dispatch(
       (api.util.updateQueryData as any)(endpointName, arg, recipe),
     ) as PatchCollection;
 
-    if (patchCollection?.patches?.length > 0) {
+    const cacheAfter = selectCache(endpointName, arg, getState());
+
+    const edits = cacheBefore !== cacheAfter
+      ? convertToIdPaths(cacheBefore, cacheAfter)
+      : [];
+
+    // Always push inside an open transaction so every update intent is captured
+    // in the atomic undo unit, even when this particular recipe was a no-op.
+    // Outside a transaction only push when there are actual edits to record.
+    if (edits.length > 0 || getState().history.inTransaction) {
       const diff: CacheDiff = {
         id: newDiffId(),
         timestamp: Date.now(),
         endpointName,
         queryArg: arg,
-        edits: convertToIdPaths(cacheBefore, patchCollection.patches),
-        patches: patchCollection.patches,
-        inversePatches: patchCollection.inversePatches,
+        edits,
+        patches: patchCollection?.patches ?? [],
+        inversePatches: patchCollection?.inversePatches ?? [],
       };
       dispatch(historyActions.push(diff));
     }
@@ -60,24 +75,79 @@ export const trackableUpdateQueryData = (
 // Undo / redo
 // ---------------------------------------------------------------------------
 
+/** True for paths like "[id=abc]" or "[0]" (no field segment after the id). */
+const isEntityLevel = (path: string) => !path.includes('/');
+
+function applyEdit(
+  draft: unknown[],
+  edit: FieldEdit,
+  direction: 'undo' | 'redo',
+): void {
+  const isUndo = direction === 'undo';
+
+  if (isEntityLevel(edit.path)) {
+    const arr = draft as Array<Record<string, unknown>>;
+    // The live entity is in `after` for adds, `before` for removes.
+    const entity = (edit.op === 'add' ? edit.after : edit.before) as Record<string, unknown> | undefined;
+    // XOR: insert when (add AND redo) OR (remove AND undo); remove otherwise.
+    const inserting = (edit.op === 'add') !== isUndo;
+
+    if (inserting) {
+      if (entity != null) arr.splice(edit.index ?? arr.length, 0, entity);
+    } else {
+      const id = (entity as { id?: string } | undefined)?.id;
+      if (id) {
+        const idx = arr.findIndex(e => e.id === id);
+        if (idx !== -1) arr.splice(idx, 1);
+      }
+    }
+    return;
+  }
+
+  // Field-level: op is irrelevant — apply the target snapshot value.
+  // before=undefined means the field didn't exist → undo deletes it.
+  // after=undefined means the field was deleted → redo deletes it.
+  const { parent, key } = resolvePath(draft, edit.path);
+  if (parent == null || key === '' || key === -1) return;
+
+  const rec = parent as Record<string | number, unknown>;
+  const target = isUndo ? edit.before : edit.after;
+
+  if (target === undefined) {
+    delete rec[key];
+  } else {
+    rec[key] = target;
+  }
+}
+
 function applyEdits(
   draft: unknown[],
   edits: FieldEdit[],
   direction: 'undo' | 'redo',
 ): void {
-  const list = direction === 'undo' ? [...edits].reverse() : edits;
-  list.forEach(edit => {
-    const value = direction === 'undo' ? edit.before : edit.after;
-    if (edit.op === 'remove' && direction === 'undo') return; // re-insertion not yet implemented
-    try {
-      const { parent, key } = resolvePath(draft, edit.path);
-      if (parent != null && key !== '' && key !== -1) {
-        (parent as Record<string | number, unknown>)[key] = value;
-      }
-    } catch {
-      // entity was removed from cache between edit and undo — skip
-    }
-  });
+  if (direction === 'undo') {
+    // Entity-level removes are re-inserted via splice(index, 0, entity).
+    // Splicing in REVERSE index order would push earlier items out of place,
+    // so we separate them out and process them in ASCENDING index order after
+    // all other (non-removal) edits have been reverted.
+    const entityRemoves = edits
+      .filter(e => e.op === 'remove' && isEntityLevel(e.path))
+      .sort((a, b) => (a.index ?? Infinity) - (b.index ?? Infinity));
+
+    const others = edits.filter(e => !(e.op === 'remove' && isEntityLevel(e.path)));
+
+    [...others].reverse().forEach(edit => {
+      try { applyEdit(draft, edit, 'undo'); } catch { /* entity gone — skip */ }
+    });
+
+    entityRemoves.forEach(edit => {
+      try { applyEdit(draft, edit, 'undo'); } catch { /* entity gone — skip */ }
+    });
+  } else {
+    edits.forEach(edit => {
+      try { applyEdit(draft, edit, 'redo'); } catch { /* entity gone — skip */ }
+    });
+  }
 }
 
 function applyTransaction(

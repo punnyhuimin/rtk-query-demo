@@ -4,7 +4,16 @@ export interface FieldEdit {
   op: 'replace' | 'add' | 'remove';
   before: unknown;
   after: unknown;
+  /**
+   * For entity-level add/remove: the entity's original index in the array.
+   * Used by undo to splice the entity back at exactly the right position.
+   */
+  index?: number;
 }
+
+import type { Patch } from 'immer';
+
+export type { Patch };
 
 export interface CacheDiff {
   id: string;
@@ -13,14 +22,8 @@ export interface CacheDiff {
   queryArg: unknown;
   edits: FieldEdit[];
   /** Raw Immer patches — kept for diagnostics; undo/redo uses id-based edits above */
-  patches: ImmerPatch[];
-  inversePatches: ImmerPatch[];
-}
-
-export interface ImmerPatch {
-  op: 'replace' | 'add' | 'remove';
-  path: (string | number)[];
-  value?: unknown;
+  patches: Patch[];
+  inversePatches: Patch[];
 }
 
 /**
