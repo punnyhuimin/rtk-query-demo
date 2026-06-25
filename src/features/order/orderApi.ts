@@ -1,6 +1,7 @@
 import { api } from 'features/api/apiSlice';
 import { providesList } from 'features/api/utils';
 import { mergeRetainDirty } from 'mocks/services/utils';
+import { trackableUpdateQueryData } from 'edits/trackableUpdate';
 import type { Order } from 'types';
 
 export const orderApi = api.injectEndpoints({
@@ -24,8 +25,8 @@ export const orderApi = api.injectEndpoints({
       async onQueryStarted(order, { dispatch }) {
         dispatch(
           orderApi.util.updateQueryData('getOrders', undefined, (draftOrders) => {
-            const index = draftOrders.findIndex(o => o.id === order.id);
-            if (index > -1) delete draftOrders[index].__isDirty;
+            const draftOrder = draftOrders.find(o => o.id === order.id);
+            if (draftOrder) delete draftOrder.__isDirty;
           }),
         );
       },
@@ -39,8 +40,8 @@ export const orderApi = api.injectEndpoints({
       async onQueryStarted(orderId, { dispatch }) {
         dispatch(
           orderApi.util.updateQueryData('getOrders', undefined, (draftOrders) => {
-            const index = draftOrders.findIndex(o => o.id === orderId);
-            delete draftOrders[index].__isDirty;
+            const draftOrder = draftOrders.find(o => o.id === orderId);
+            if (draftOrder) delete draftOrder.__isDirty;
           }),
         );
       },
@@ -60,14 +61,15 @@ export const useGetOrderByIdQuery = (orderId: string | undefined) => useGetOrder
 export const updateOrderAction = (
   orderId: string,
   editedOrderOrFn?: Partial<Order> | ((draft: Order) => void)
-) => orderApi.util.updateQueryData(
-  'getOrders', undefined, (draftOrders) => {
-    const index = draftOrders.findIndex(o => o.id === orderId);
+) => trackableUpdateQueryData(
+  'getOrders', undefined, (draftOrders: Order[]) => {
+    const order = draftOrders.find(o => o.id === orderId);
+    if (!order) return;
     if (typeof editedOrderOrFn === 'function') {
-      editedOrderOrFn(draftOrders[index]);
+      editedOrderOrFn(order);
     } else if (editedOrderOrFn !== undefined) {
-      draftOrders[index] = { ...draftOrders[index], ...editedOrderOrFn };
+      Object.assign(order, editedOrderOrFn);
     }
-    draftOrders[index].__isDirty = true;
+    order.__isDirty = true;
   }
 );

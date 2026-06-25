@@ -1,8 +1,11 @@
 import { api } from 'features/api/apiSlice';
 import { updateOrderAction } from 'features/order/orderApi';
 import { providesId } from 'features/api/utils';
+import { trackableUpdateQueryData } from 'edits/trackableUpdate';
+import { historyActions } from 'edits/historySlice';
 import { saveInitialOrderItemIds } from './itemSlice';
 import { store } from 'app/store';
+import type { AppDispatch } from 'app/store';
 import type { Item } from 'types';
 
 const invalidatesTags = (_result: unknown, _error: unknown, arg: any) => [
@@ -135,20 +138,25 @@ const invalidateBatchItemsResults = (dispatch: (action: unknown) => void, orderI
   dispatch(api.util.invalidateTags([{ type: 'OrderItemsBatch', id: orderId }]));
 };
 
-export const editOrderItemAction = (orderId: string, editedItem: Item) => (dispatch: any) => {
-  dispatch(itemApi.util.updateQueryData(
-    'searchItems', { orderId }, (draftItems) => {
-      const index = draftItems.findIndex(o => o.id === editedItem.id);
-      draftItems[index] = { ...editedItem, __isDirty: true };
+export const editOrderItemAction = (orderId: string, editedItem: Item) => (dispatch: AppDispatch) => {
+  dispatch(historyActions.beginTransaction());
+  dispatch(trackableUpdateQueryData(
+    'searchItems', { orderId }, (draftItems: Item[]) => {
+      const item = draftItems.find(o => o.id === editedItem.id);
+      if (!item) return;
+      Object.assign(item, editedItem);
+      item.__isDirty = true;
     }
   ));
   dispatch(updateOrderAction(orderId));
+  dispatch(historyActions.commitTransaction());
   invalidateBatchItemsResults(dispatch, orderId);
 };
 
-export const addOrderItemAction = (orderId: string, newItem: Item) => (dispatch: any) => {
-  dispatch(itemApi.util.updateQueryData(
-    'searchItems', { orderId }, (draftItems) => {
+export const addOrderItemAction = (orderId: string, newItem: Item) => (dispatch: AppDispatch) => {
+  dispatch(historyActions.beginTransaction());
+  dispatch(trackableUpdateQueryData(
+    'searchItems', { orderId }, (draftItems: Item[]) => {
       draftItems.push({ ...newItem, __isDirty: true });
     }
   ));
@@ -156,28 +164,31 @@ export const addOrderItemAction = (orderId: string, newItem: Item) => (dispatch:
     orderId,
     (draftOrder) => { draftOrder.itemsCount = '...'; },
   ));
+  dispatch(historyActions.commitTransaction());
   invalidateBatchItemsResults(dispatch, orderId);
 };
 
-export const deleteOrderItemAction = (orderId: string, itemId: string) => (dispatch: any) => {
-  dispatch(itemApi.util.updateQueryData(
-    'searchItems', { orderId }, (draftItems) => {
-      const index = draftItems.findIndex(o => o.id === itemId);
-      if (index > -1) {
-        draftItems.splice(index, 1);
-      }
+export const deleteOrderItemAction = (orderId: string, itemId: string) => (dispatch: AppDispatch) => {
+  dispatch(historyActions.beginTransaction());
+  dispatch(trackableUpdateQueryData(
+    'searchItems', { orderId }, (draftItems: Item[]) => {
+      const idx = draftItems.findIndex(o => o.id === itemId);
+      if (idx !== -1) draftItems.splice(idx, 1);
     }
   ));
   dispatch(updateOrderAction(orderId));
+  dispatch(historyActions.commitTransaction());
   invalidateBatchItemsResults(dispatch, orderId);
 };
 
-export const clearOrderItemsAction = (orderId: string) => (dispatch: any) => {
-  dispatch(itemApi.util.updateQueryData(
-    'searchItems', { orderId }, (draftItems) => {
+export const clearOrderItemsAction = (orderId: string) => (dispatch: AppDispatch) => {
+  dispatch(historyActions.beginTransaction());
+  dispatch(trackableUpdateQueryData(
+    'searchItems', { orderId }, (draftItems: Item[]) => {
       draftItems.length = 0;
     }
   ));
   dispatch(updateOrderAction(orderId));
+  dispatch(historyActions.commitTransaction());
   invalidateBatchItemsResults(dispatch, orderId);
 };

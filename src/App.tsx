@@ -17,6 +17,7 @@ import Loading from './app/Loading';
 import Orders from './features/order/Orders';
 import Items from './features/item/Items';
 import { useIsLoading } from './features/api/utils';
+import { useUndoRedoShortcut } from './edits/useUndoRedoShortcut';
 
 ModuleRegistry.registerModules([
   ClientSideRowModelModule,
@@ -33,6 +34,7 @@ ModuleRegistry.registerModules([
 
 function App() {
   const isLoading = useIsLoading();
+  useUndoRedoShortcut();
   return (
     <div className="App">
       { isLoading && <Loading />}
