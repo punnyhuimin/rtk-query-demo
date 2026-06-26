@@ -14,10 +14,12 @@ export function useUndoRedoShortcut(): void {
     const onKeyDown = (e: KeyboardEvent) => {
       if (!e.ctrlKey && !e.metaKey) return;
 
-      if (e.key === 'z' && !e.shiftKey) {
+      const key = e.key.toLowerCase();
+
+      if (key === 'z' && !e.shiftKey) {
         e.preventDefault();
         undo();
-      } else if (e.key === 'y' || (e.key === 'z' && e.shiftKey)) {
+      } else if (key === 'y' || (key === 'z' && e.shiftKey)) {
         e.preventDefault();
         redo();
       }

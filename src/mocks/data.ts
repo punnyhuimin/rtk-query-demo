@@ -8,11 +8,11 @@ const orders: Order[] = [
 ];
 
 const items: Item[] = [
-  { id: nanoid(), name: 'item1', _orderId: orders[1].id },
-  { id: nanoid(), name: 'item2', _orderId: orders[1].id },
-  { id: nanoid(), name: 'item3', _orderId: orders[2].id },
-  { id: nanoid(), name: 'item4', _orderId: orders[2].id },
-  { id: nanoid(), name: 'item5', _orderId: orders[2].id },
+  { id: nanoid(), name: 'item1', _orderId: orders[1].id, warehouseCount: 0, warehouses: [] },
+  { id: nanoid(), name: 'item2', _orderId: orders[1].id, warehouseCount: 0, warehouses: [] },
+  { id: nanoid(), name: 'item3', _orderId: orders[2].id, warehouseCount: 0, warehouses: [] },
+  { id: nanoid(), name: 'item4', _orderId: orders[2].id, warehouseCount: 0, warehouses: [] },
+  { id: nanoid(), name: 'item5', _orderId: orders[2].id, warehouseCount: 0, warehouses: [] },
 ];
 
 export const saveOrders = (orders: Order[]) => localStorage.setItem('order', JSON.stringify(orders));

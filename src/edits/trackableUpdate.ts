@@ -104,14 +104,30 @@ function applyEdit(
     return;
   }
 
-  // Field-level: op is irrelevant — apply the target snapshot value.
-  // before=undefined means the field didn't exist → undo deletes it.
-  // after=undefined means the field was deleted → redo deletes it.
+  // Field-level: apply the target snapshot value.
+  // before=undefined → field didn't exist before → undo deletes it.
+  // after=undefined → field was deleted → redo deletes it.
   const { parent, key } = resolvePath(draft, edit.path);
   if (parent == null || key === '' || key === -1) return;
 
   const rec = parent as Record<string | number, unknown>;
   const target = isUndo ? edit.before : edit.after;
+
+  // When the parent is an array and the key is a numeric index, use splice so
+  // elements are properly inserted/removed rather than overwriting slots.
+  // This handles nested arrays like item.warehouses whose changes are described
+  // by index-based RFC 6902 paths (e.g. "[id=x]/warehouses/2").
+  const numKey = Number(key);
+  if (Array.isArray(rec) && !isNaN(numKey)) {
+    if (target === undefined) {
+      rec.splice(numKey, 1);                   // remove element
+    } else if (edit.op !== 'replace') {
+      rec.splice(numKey, 0, target);            // insert element (add / inverted remove)
+    } else {
+      rec[numKey] = target;                     // overwrite in-place
+    }
+    return;
+  }
 
   if (target === undefined) {
     delete rec[key];

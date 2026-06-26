@@ -1,3 +1,4 @@
+import { nanoid } from '@reduxjs/toolkit';
 import { api } from 'features/api/apiSlice';
 import { updateOrderAction } from 'features/order/orderApi';
 import { providesId } from 'features/api/utils';
@@ -6,7 +7,7 @@ import { historyActions } from 'edits/historySlice';
 import { saveInitialOrderItemIds } from './itemSlice';
 import { store } from 'app/store';
 import type { AppDispatch } from 'app/store';
-import type { Item } from 'types';
+import type { Item, Warehouse } from 'types';
 
 const invalidatesTags = (_result: unknown, _error: unknown, arg: any) => [
   { type: 'OrderItems' as const, id: arg.orderId ?? arg },
@@ -174,6 +175,43 @@ export const deleteOrderItemAction = (orderId: string, itemId: string) => (dispa
     'searchItems', { orderId }, (draftItems: Item[]) => {
       const idx = draftItems.findIndex(o => o.id === itemId);
       if (idx !== -1) draftItems.splice(idx, 1);
+    }
+  ));
+  dispatch(updateOrderAction(orderId));
+  dispatch(historyActions.commitTransaction());
+  invalidateBatchItemsResults(dispatch, orderId);
+};
+
+/**
+ * Adjusts item.warehouses to match newCount.
+ * Increasing adds default warehouses; decreasing removes from the end.
+ * Both the warehouseCount field and the warehouses array change atomically
+ * in one transaction so a single Ctrl+Z reverts both.
+ */
+export const setWarehouseCountAction = (
+  orderId: string,
+  itemId: string,
+  newCount: number,
+) => (dispatch: AppDispatch) => {
+  dispatch(historyActions.beginTransaction());
+  dispatch(trackableUpdateQueryData(
+    'searchItems', { orderId }, (draftItems: Item[]) => {
+      const item = draftItems.find(o => o.id === itemId);
+      if (!item) return;
+
+      const current = item.warehouses?.length ?? 0;
+      if (newCount > current) {
+        if (!item.warehouses) item.warehouses = [];
+        for (let i = current; i < newCount; i++) {
+          const w: Warehouse = { id: nanoid(), name: `Warehouse ${i + 1}` };
+          item.warehouses.push(w);
+        }
+      } else if (newCount < current) {
+        item.warehouses = item.warehouses.slice(0, newCount);
+      }
+
+      item.warehouseCount = newCount;
+      item.__isDirty = true;
     }
   ));
   dispatch(updateOrderAction(orderId));
