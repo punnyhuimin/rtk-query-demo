@@ -7,6 +7,7 @@ export interface HistoryState {
   /** Diffs buffered between beginTransaction / commitTransaction */
   pending: CacheDiff[];
   inTransaction: boolean;
+  maxSize: number;
 }
 
 const initialState: HistoryState = {
@@ -14,6 +15,13 @@ const initialState: HistoryState = {
   future: [],
   pending: [],
   inTransaction: false,
+  maxSize: Infinity,
+};
+
+const trim = (state: HistoryState) => {
+  if (state.past.length > state.maxSize) {
+    state.past.splice(0, state.past.length - state.maxSize);
+  }
 };
 
 let _txSeq = 0;
@@ -34,6 +42,7 @@ const historySlice = createSlice({
       } else {
         state.past.push({ id: payload.id, timestamp: payload.timestamp, diffs: [payload] });
         state.future = [];
+        trim(state);
       }
     },
 
@@ -56,6 +65,7 @@ const historySlice = createSlice({
           diffs: [...state.pending],
         });
         state.future = [];
+        trim(state);
       }
       state.pending = [];
       state.inTransaction = false;
@@ -68,7 +78,15 @@ const historySlice = createSlice({
 
     redo(state) {
       const tx = state.future.shift();
-      if (tx) state.past.push(tx);
+      if (tx) {
+        state.past.push(tx);
+        trim(state);
+      }
+    },
+
+    setMaxSize(state, { payload }: PayloadAction<number>) {
+      state.maxSize = payload;
+      trim(state);
     },
 
     clear(state) {

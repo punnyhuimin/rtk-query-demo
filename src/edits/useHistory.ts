@@ -21,6 +21,10 @@ export function useHistory() {
     (orderId: string) => { dispatch(historyActions.purgeByOrderIds([orderId])); },
     [dispatch],
   );
+  const setMaxSize = useCallback(
+    (n: number) => { dispatch(historyActions.setMaxSize(n)); },
+    [dispatch],
+  );
 
-  return { undo, redo, clear, purgeByOrderId, canUndo, canRedo, pastTransactions };
+  return { undo, redo, clear, purgeByOrderId, setMaxSize, canUndo, canRedo, pastTransactions };
 }
