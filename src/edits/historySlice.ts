@@ -77,6 +77,41 @@ const historySlice = createSlice({
       state.pending = [];
       state.inTransaction = false;
     },
+
+    /**
+     * Remove every transaction (past, future, and pending) whose diffs touch
+     * any of the supplied order IDs. A diff "touches" an order ID when:
+     *   - its queryArg equals the ID string (e.g. getOrders-style caches), OR
+     *   - its queryArg is { orderId } matching the ID (e.g. searchItems cache), OR
+     *   - any edit path starts with [id=<ID>] (field edits on the order entity).
+     *
+     * This intentionally covers both the order's own field edits and all items
+     * that belong to it, since items are stored under searchItems({ orderId }).
+     */
+    purgeByOrderIds(state, { payload }: PayloadAction<string[]>) {
+      const ids = new Set(payload);
+
+      const diffHasIds = (diff: CacheDiff): boolean => {
+        if (typeof diff.queryArg === 'string' && ids.has(diff.queryArg)) return true;
+        if (
+          diff.queryArg !== null &&
+          typeof diff.queryArg === 'object' &&
+          'orderId' in (diff.queryArg as object) &&
+          ids.has((diff.queryArg as { orderId: string }).orderId)
+        ) return true;
+        return diff.edits.some(edit => {
+          const match = edit.path.match(/^\[id=([^\]]+)\]/);
+          return match != null && ids.has(match[1]);
+        });
+      };
+
+      const txHasIds = (tx: Transaction): boolean =>
+        tx.diffs.some(diffHasIds);
+
+      state.past = state.past.filter(tx => !txHasIds(tx));
+      state.future = state.future.filter(tx => !txHasIds(tx));
+      state.pending = state.pending.filter(diff => !diffHasIds(diff));
+    },
   },
 });
 

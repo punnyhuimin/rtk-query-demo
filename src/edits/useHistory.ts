@@ -17,6 +17,10 @@ export function useHistory() {
   const undo = useCallback(() => { dispatch(undoAction()); }, [dispatch]);
   const redo = useCallback(() => { dispatch(redoAction()); }, [dispatch]);
   const clear = useCallback(() => { dispatch(historyActions.clear()); }, [dispatch]);
+  const purgeByOrderId = useCallback(
+    (orderId: string) => { dispatch(historyActions.purgeByOrderIds([orderId])); },
+    [dispatch],
+  );
 
-  return { undo, redo, clear, canUndo, canRedo, pastTransactions };
+  return { undo, redo, clear, purgeByOrderId, canUndo, canRedo, pastTransactions };
 }

@@ -2,6 +2,7 @@ import { api } from 'features/api/apiSlice';
 import { providesList } from 'features/api/utils';
 import { mergeRetainDirty } from 'mocks/services/utils';
 import { trackableUpdateQueryData } from 'edits/trackableUpdate';
+import { historyActions } from 'edits/historySlice';
 import type { Order } from 'types';
 
 export const orderApi = api.injectEndpoints({
@@ -22,13 +23,17 @@ export const orderApi = api.injectEndpoints({
         body: order,
       }),
       invalidatesTags: ['Order'],
-      async onQueryStarted(order, { dispatch }) {
-        dispatch(
-          orderApi.util.updateQueryData('getOrders', undefined, (draftOrders) => {
-            const draftOrder = draftOrders.find(o => o.id === order.id);
-            if (draftOrder) delete draftOrder.__isDirty;
-          }),
-        );
+      async onQueryStarted(order, { dispatch, queryFulfilled }) {
+        try {
+          await queryFulfilled;
+          dispatch(
+            orderApi.util.updateQueryData('getOrders', undefined, (draftOrders) => {
+              const draftOrder = draftOrders.find(o => o.id === order.id);
+              if (draftOrder) delete draftOrder.__isDirty;
+            }),
+          );
+          if (order.id) dispatch(historyActions.purgeByOrderIds([order.id]));
+        } catch { /* save failed — leave history intact */ }
       },
     }),
     deleteOrder: builder.mutation<Order, string>({
