@@ -8,9 +8,11 @@ import type { Order } from 'types';
 let orders = getOrders();
 
 const orderHandlers = [
-  http.get('/api/v1/order', async () => {
+  http.get('/api/v1/order', async ({ request }) => {
+    const workspaceId = new URL(request.url).searchParams.get('workspaceId');
+    const result = workspaceId ? orders.filter(o => o.workspaceId === workspaceId) : orders;
     await delay();
-    return HttpResponse.json(orders);
+    return HttpResponse.json(result);
   }),
   http.get('/api/v1/order/:id', async ({ params }) => {
     const id = params.id as string;
@@ -29,8 +31,8 @@ const orderHandlers = [
         statusText: 'No data',
       });
     }
-    const { id = nanoid(), name } = body;
-    const order: Order = { id, name: name ?? '' };
+    const { id = nanoid(), name, status, workspaceId, isEditable } = body;
+    const order: Order = { id, name: name ?? '', status: status ?? 'draft', workspaceId: workspaceId ?? '', isEditable };
 
     orders = merge(orders, [order], (a, b) => a.id === b.id);
     await delay();

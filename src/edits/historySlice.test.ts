@@ -153,24 +153,24 @@ describe('historySlice reducer', () => {
     });
   });
 
-  describe('purgeByOrderIds', () => {
+  describe('purgeByIds', () => {
     it('removes past transactions whose queryArg matches an order id (string)', () => {
       const state: HistoryState = {
         ...BASE,
         past: [makeTx({ diffs: [makeDiff({ queryArg: 'order-1' })] })],
         future: [makeTx({ id: 'tx-f', diffs: [makeDiff({ id: 'd2', queryArg: 'order-2' })] })],
       };
-      const next = reducer(state, historyActions.purgeByOrderIds(['order-1']));
+      const next = reducer(state, historyActions.purgeByIds(['order-1']));
       expect(next.past).toHaveLength(0);
       expect(next.future).toHaveLength(1);
     });
 
-    it('removes transactions whose queryArg.orderId matches', () => {
+    it('removes transactions whose queryArg.orderId matches (searchItems endpoint)', () => {
       const state: HistoryState = {
         ...BASE,
-        past: [makeTx({ diffs: [makeDiff({ queryArg: { orderId: 'order-1' } })] })],
+        past: [makeTx({ diffs: [makeDiff({ endpointName: 'searchItems', queryArg: { orderId: 'order-1' } })] })],
       };
-      const next = reducer(state, historyActions.purgeByOrderIds(['order-1']));
+      const next = reducer(state, historyActions.purgeByIds(['order-1']));
       expect(next.past).toHaveLength(0);
     });
 
@@ -180,7 +180,7 @@ describe('historySlice reducer', () => {
         edits: [{ path: '[id=order-1]/name', op: 'replace', before: 'a', after: 'b' }],
       });
       const state: HistoryState = { ...BASE, past: [makeTx({ diffs: [diff] })] };
-      const next = reducer(state, historyActions.purgeByOrderIds(['order-1']));
+      const next = reducer(state, historyActions.purgeByIds(['order-1']));
       expect(next.past).toHaveLength(0);
     });
 
@@ -189,7 +189,7 @@ describe('historySlice reducer', () => {
         ...BASE,
         past: [makeTx({ diffs: [makeDiff({ queryArg: 'order-99' })] })],
       };
-      const next = reducer(state, historyActions.purgeByOrderIds(['order-1']));
+      const next = reducer(state, historyActions.purgeByIds(['order-1']));
       expect(next.past).toHaveLength(1);
     });
 
@@ -198,7 +198,7 @@ describe('historySlice reducer', () => {
         ...BASE,
         pending: [makeDiff({ queryArg: 'order-1' }), makeDiff({ id: 'diff-2', queryArg: 'order-99' })],
       };
-      const next = reducer(state, historyActions.purgeByOrderIds(['order-1']));
+      const next = reducer(state, historyActions.purgeByIds(['order-1']));
       expect(next.pending).toHaveLength(1);
       expect(next.pending[0].id).toBe('diff-2');
     });

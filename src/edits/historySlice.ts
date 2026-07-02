@@ -1,5 +1,6 @@
 import { createSlice, type PayloadAction } from '@reduxjs/toolkit';
 import type { CacheDiff, Transaction } from 'types/CacheDiff';
+import { diffTouchesOrderIds } from './diffUtils';
 
 export interface HistoryState {
   past: Transaction[];
@@ -106,29 +107,15 @@ const historySlice = createSlice({
      * This intentionally covers both the order's own field edits and all items
      * that belong to it, since items are stored under searchItems({ orderId }).
      */
-    purgeByOrderIds(state, { payload }: PayloadAction<string[]>) {
+    purgeByIds(state, { payload }: PayloadAction<string[]>) {
       const ids = new Set(payload);
 
-      const diffHasIds = (diff: CacheDiff): boolean => {
-        if (typeof diff.queryArg === 'string' && ids.has(diff.queryArg)) return true;
-        if (
-          diff.queryArg !== null &&
-          typeof diff.queryArg === 'object' &&
-          'orderId' in (diff.queryArg as object) &&
-          ids.has((diff.queryArg as { orderId: string }).orderId)
-        ) return true;
-        return diff.edits.some(edit => {
-          const match = edit.path.match(/^\[id=([^\]]+)\]/);
-          return match != null && ids.has(match[1]);
-        });
-      };
-
       const txHasIds = (tx: Transaction): boolean =>
-        tx.diffs.some(diffHasIds);
+        tx.diffs.some(diff => diffTouchesOrderIds(diff, ids));
 
       state.past = state.past.filter(tx => !txHasIds(tx));
       state.future = state.future.filter(tx => !txHasIds(tx));
-      state.pending = state.pending.filter(diff => !diffHasIds(diff));
+      state.pending = state.pending.filter(diff => !diffTouchesOrderIds(diff, ids));
     },
   },
 });

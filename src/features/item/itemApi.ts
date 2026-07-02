@@ -139,7 +139,7 @@ const invalidateBatchItemsResults = (dispatch: (action: unknown) => void, orderI
   dispatch(api.util.invalidateTags([{ type: 'OrderItemsBatch', id: orderId }]));
 };
 
-export const editOrderItemAction = (orderId: string, editedItem: Item) => (dispatch: AppDispatch) => {
+export const editOrderItemAction = (workspaceId: string, orderId: string, editedItem: Item) => (dispatch: AppDispatch) => {
   dispatch(historyActions.beginTransaction());
   dispatch(trackableUpdateQueryData(
     'searchItems', { orderId }, (draftItems: Item[]) => {
@@ -149,12 +149,12 @@ export const editOrderItemAction = (orderId: string, editedItem: Item) => (dispa
       item.__isDirty = true;
     }
   ));
-  dispatch(updateOrderAction(orderId));
+  dispatch(updateOrderAction(workspaceId, orderId));
   dispatch(historyActions.commitTransaction());
   invalidateBatchItemsResults(dispatch, orderId);
 };
 
-export const addOrderItemAction = (orderId: string, newItem: Item) => (dispatch: AppDispatch) => {
+export const addOrderItemAction = (workspaceId: string, orderId: string, newItem: Item) => (dispatch: AppDispatch) => {
   dispatch(historyActions.beginTransaction());
   dispatch(trackableUpdateQueryData(
     'searchItems', { orderId }, (draftItems: Item[]) => {
@@ -162,6 +162,7 @@ export const addOrderItemAction = (orderId: string, newItem: Item) => (dispatch:
     }
   ));
   dispatch(updateOrderAction(
+    workspaceId,
     orderId,
     (draftOrder) => { draftOrder.itemsCount = '...'; },
   ));
@@ -169,7 +170,7 @@ export const addOrderItemAction = (orderId: string, newItem: Item) => (dispatch:
   invalidateBatchItemsResults(dispatch, orderId);
 };
 
-export const deleteOrderItemAction = (orderId: string, itemId: string) => (dispatch: AppDispatch) => {
+export const deleteOrderItemAction = (workspaceId: string, orderId: string, itemId: string) => (dispatch: AppDispatch) => {
   dispatch(historyActions.beginTransaction());
   dispatch(trackableUpdateQueryData(
     'searchItems', { orderId }, (draftItems: Item[]) => {
@@ -177,7 +178,7 @@ export const deleteOrderItemAction = (orderId: string, itemId: string) => (dispa
       if (idx !== -1) draftItems.splice(idx, 1);
     }
   ));
-  dispatch(updateOrderAction(orderId));
+  dispatch(updateOrderAction(workspaceId, orderId));
   dispatch(historyActions.commitTransaction());
   invalidateBatchItemsResults(dispatch, orderId);
 };
@@ -189,6 +190,7 @@ export const deleteOrderItemAction = (orderId: string, itemId: string) => (dispa
  * in one transaction so a single Ctrl+Z reverts both.
  */
 export const setWarehouseCountAction = (
+  workspaceId: string,
   orderId: string,
   itemId: string,
   newCount: number,
@@ -214,19 +216,19 @@ export const setWarehouseCountAction = (
       item.__isDirty = true;
     }
   ));
-  dispatch(updateOrderAction(orderId));
+  dispatch(updateOrderAction(workspaceId, orderId));
   dispatch(historyActions.commitTransaction());
   invalidateBatchItemsResults(dispatch, orderId);
 };
 
-export const clearOrderItemsAction = (orderId: string) => (dispatch: AppDispatch) => {
+export const clearOrderItemsAction = (workspaceId: string, orderId: string) => (dispatch: AppDispatch) => {
   dispatch(historyActions.beginTransaction());
   dispatch(trackableUpdateQueryData(
     'searchItems', { orderId }, (draftItems: Item[]) => {
       draftItems.length = 0;
     }
   ));
-  dispatch(updateOrderAction(orderId));
+  dispatch(updateOrderAction(workspaceId, orderId));
   dispatch(historyActions.commitTransaction());
   invalidateBatchItemsResults(dispatch, orderId);
 };

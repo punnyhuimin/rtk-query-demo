@@ -5,6 +5,7 @@ import { api } from 'features/api/apiSlice';
 import orderReducer from 'features/order/orderSlice';
 import itemReducer from 'features/item/itemSlice';
 import historyReducer from 'edits/historySlice';
+import workspaceReducer from 'features/workspace/workspaceSlice';
 
 export const store = configureStore({
   devTools: process.env.NODE_ENV === 'development',
@@ -13,6 +14,7 @@ export const store = configureStore({
     order: orderReducer,
     item: itemReducer,
     history: historyReducer,
+    workspace: workspaceReducer,
   },
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware().concat(api.middleware),

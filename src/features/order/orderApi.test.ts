@@ -10,27 +10,30 @@ const mockTUQD = trackableUpdateQueryData as jest.Mock;
 
 /** Call updateOrderAction and return the recipe it passed to trackableUpdateQueryData. */
 const getRecipe = (
+  workspaceId: string,
   orderId: string,
   arg?: Partial<Order> | ((draft: Order) => void),
 ): ((draft: Order[]) => void) => {
-  updateOrderAction(orderId, arg as any);
+  updateOrderAction(workspaceId, orderId, arg as any);
   return mockTUQD.mock.calls[0][2];
 };
 
 const makeOrder = (overrides: Partial<Order> = {}): Order => ({
   id: '1',
   name: 'Original',
+  status: 'draft',
+  workspaceId: 'ws-1',
   ...overrides,
 });
 
 describe('updateOrderAction', () => {
-  it('passes endpointName "getOrders" with undefined arg to trackableUpdateQueryData', () => {
-    updateOrderAction('1', { name: 'x' });
-    expect(mockTUQD).toHaveBeenCalledWith('getOrders', undefined, expect.any(Function));
+  it('passes endpointName "getOrders" with workspaceId arg to trackableUpdateQueryData', () => {
+    updateOrderAction('ws-1', '1', { name: 'x' });
+    expect(mockTUQD).toHaveBeenCalledWith('getOrders', 'ws-1', expect.any(Function));
   });
 
   it('with a partial object: merges the fields and sets __isDirty', () => {
-    const recipe = getRecipe('1', { name: 'Updated' });
+    const recipe = getRecipe('ws-1', '1', { name: 'Updated' });
     const draft = [makeOrder()];
     recipe(draft);
     expect(draft[0].name).toBe('Updated');
@@ -38,15 +41,15 @@ describe('updateOrderAction', () => {
   });
 
   it('with a function: calls the updater on the matching order and sets __isDirty', () => {
-    const recipe = getRecipe('1', o => { o.name = 'Via Fn'; });
+    const recipe = getRecipe('ws-1', '1', o => { o.name = 'Via Fn'; });
     const draft = [makeOrder()];
     recipe(draft);
     expect(draft[0].name).toBe('Via Fn');
     expect(draft[0].__isDirty).toBe(true);
   });
 
-  it('with no second argument: only sets __isDirty', () => {
-    const recipe = getRecipe('1');
+  it('with no third argument: only sets __isDirty', () => {
+    const recipe = getRecipe('ws-1', '1');
     const draft = [makeOrder()];
     recipe(draft);
     expect(draft[0].name).toBe('Original');
@@ -54,7 +57,7 @@ describe('updateOrderAction', () => {
   });
 
   it('with an unknown orderId: is a no-op (returns without modifying the draft)', () => {
-    const recipe = getRecipe('unknown', { name: 'Should not apply' });
+    const recipe = getRecipe('ws-1', 'unknown', { name: 'Should not apply' });
     const draft = [makeOrder({ id: '1' })];
     recipe(draft);
     expect(draft[0].name).toBe('Original');
@@ -62,7 +65,7 @@ describe('updateOrderAction', () => {
   });
 
   it('only updates the matching order when the draft contains multiple orders', () => {
-    const recipe = getRecipe('2', { name: 'Order 2 Updated' });
+    const recipe = getRecipe('ws-1', '2', { name: 'Order 2 Updated' });
     const draft = [makeOrder({ id: '1' }), makeOrder({ id: '2', name: 'Order 2' })];
     recipe(draft);
     expect(draft[0].__isDirty).toBeUndefined();

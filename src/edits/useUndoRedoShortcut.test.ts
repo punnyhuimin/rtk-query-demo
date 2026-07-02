@@ -17,7 +17,7 @@ describe('useUndoRedoShortcut', () => {
       undo,
       redo,
       clear: jest.fn(),
-      purgeByOrderId: jest.fn(),
+      purgeByIds: jest.fn(),
       setMaxSize: jest.fn(),
       canUndo: false,
       canRedo: false,

@@ -37,16 +37,16 @@ const Items = () => {
 
   const onCellEditRequest = useCallback((event: CellEditRequestEvent<Item>) => {
     const editedItem = getEditedRowItem(event);
-    dispatch(editOrderItemAction(selectedOrder!.id, editedItem));
+    dispatch(editOrderItemAction(selectedOrder!.workspaceId, selectedOrder!.id, editedItem));
   }, [dispatch, selectedOrder]);
 
   const addOrderItem = useCallback(() => {
-    const newItem: Item = { id: nanoid(), name: 'new item', _orderId: selectedOrder!.id };
-    dispatch(addOrderItemAction(selectedOrder!.id, newItem));
+    const newItem: Item = { id: nanoid(), name: 'new item', _orderId: selectedOrder!.id, warehouseCount: 0, warehouses: [] };
+    dispatch(addOrderItemAction(selectedOrder!.workspaceId, selectedOrder!.id, newItem));
   }, [dispatch, selectedOrder]);
 
   const clearItems = useCallback(() => {
-    dispatch(clearOrderItemsAction(selectedOrder!.id));
+    dispatch(clearOrderItemsAction(selectedOrder!.workspaceId, selectedOrder!.id));
   }, [dispatch, selectedOrder]);
 
   return (

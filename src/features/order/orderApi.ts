@@ -7,8 +7,8 @@ import type { Order } from 'types';
 
 export const orderApi = api.injectEndpoints({
   endpoints: (builder) => ({
-    getOrders: builder.query<Order[], void>({
-      query: () => 'order',
+    getOrders: builder.query<Order[], string>({
+      query: (workspaceId) => `order?workspaceId=${workspaceId}`,
       transformResponse: (orders: Order[]) => orders.map(o => ({ ...o, itemsCount: '...' })),
       providesTags: (result) => providesList(result ?? [], 'Order'),
       merge: (currentCache, orders) => {
@@ -26,25 +26,27 @@ export const orderApi = api.injectEndpoints({
       async onQueryStarted(order, { dispatch, queryFulfilled }) {
         try {
           await queryFulfilled;
-          dispatch(
-            orderApi.util.updateQueryData('getOrders', undefined, (draftOrders) => {
-              const draftOrder = draftOrders.find(o => o.id === order.id);
-              if (draftOrder) delete draftOrder.__isDirty;
-            }),
-          );
-          if (order.id) dispatch(historyActions.purgeByOrderIds([order.id]));
+          if (order.workspaceId) {
+            dispatch(
+              orderApi.util.updateQueryData('getOrders', order.workspaceId, (draftOrders) => {
+                const draftOrder = draftOrders.find(o => o.id === order.id);
+                if (draftOrder) delete draftOrder.__isDirty;
+              }),
+            );
+          }
+          if (order.id) dispatch(historyActions.purgeByIds([order.id]));
         } catch { /* save failed — leave history intact */ }
       },
     }),
-    deleteOrder: builder.mutation<Order, string>({
-      query: (orderId) => ({
+    deleteOrder: builder.mutation<Order, { orderId: string; workspaceId: string }>({
+      query: ({ orderId }) => ({
         url: `order/${orderId}`,
         method: 'DELETE',
       }),
       invalidatesTags: ['Order'],
-      async onQueryStarted(orderId, { dispatch }) {
+      async onQueryStarted({ orderId, workspaceId }, { dispatch }) {
         dispatch(
-          orderApi.util.updateQueryData('getOrders', undefined, (draftOrders) => {
+          orderApi.util.updateQueryData('getOrders', workspaceId, (draftOrders) => {
             const draftOrder = draftOrders.find(o => o.id === orderId);
             if (draftOrder) delete draftOrder.__isDirty;
           }),
@@ -56,18 +58,22 @@ export const orderApi = api.injectEndpoints({
 
 export const { useGetOrdersQuery, useUpsertOrderMutation, useDeleteOrderMutation } = orderApi;
 
-export const useGetOrderByIdQuery = (orderId: string | undefined) => useGetOrdersQuery(undefined, {
-  skip: !orderId,
+export const useGetOrderByIdQuery = (
+  orderId: string | undefined,
+  workspaceId: string | undefined,
+) => useGetOrdersQuery(workspaceId ?? '', {
+  skip: !orderId || !workspaceId,
   selectFromResult: ({ data: orders }) => ({
     data: orders?.find(o => o.id === orderId),
   }),
 });
 
 export const updateOrderAction = (
+  workspaceId: string,
   orderId: string,
-  editedOrderOrFn?: Partial<Order> | ((draft: Order) => void)
+  editedOrderOrFn?: Partial<Order> | ((draft: Order) => void),
 ) => trackableUpdateQueryData(
-  'getOrders', undefined, (draftOrders: Order[]) => {
+  'getOrders', workspaceId, (draftOrders: Order[]) => {
     const order = draftOrders.find(o => o.id === orderId);
     if (!order) return;
     if (typeof editedOrderOrFn === 'function') {

@@ -110,7 +110,7 @@ describe('useHistory', () => {
     expect(result.current.pastTransactions).toEqual([]);
   });
 
-  it('purgeByOrderId() removes matching transactions from past', () => {
+  it('purgeByIds() removes matching transactions from past', () => {
     const matchTx: Transaction = {
       id: 'tx-match',
       timestamp: 1000,
@@ -119,7 +119,7 @@ describe('useHistory', () => {
     matchTx.diffs[0] = { ...matchTx.diffs[0], queryArg: 'order-1' };
     const store = makeStore({ past: [matchTx] });
     const { result } = renderHook(() => useHistory(), { wrapper: makeWrapper(store) });
-    act(() => { result.current.purgeByOrderId('order-1'); });
+    act(() => { result.current.purgeByIds('order-1'); });
     expect(result.current.canUndo).toBe(false);
   });
 

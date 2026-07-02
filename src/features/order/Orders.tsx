@@ -8,6 +8,8 @@ import { useGetOrdersQuery, updateOrderAction, useUpsertOrderMutation } from 'fe
 import { itemApi } from 'features/item/itemApi';
 import { getEditedRowItem } from 'app/GridUtils';
 import { selectOrderId, clearSelectedOrderId } from './orderSlice';
+import { useAppSelector } from 'app/hooks';
+import { selectSelectedWorkspaceId } from 'features/workspace/workspaceSlice';
 import OrderCellRenderer from './OrderCellRenderer';
 import type { Order } from 'types';
 
@@ -27,12 +29,13 @@ const rowSelection = {
 const Orders = () => {
   const gridRef = useRef<AgGridReact<Order>>(null);
   const dispatch = useDispatch();
-  const { data } = useGetOrdersQuery();
+  const selectedWorkspaceId = useAppSelector(selectSelectedWorkspaceId);
+  const { data } = useGetOrdersQuery(selectedWorkspaceId ?? '', { skip: !selectedWorkspaceId });
   const [upsertOrder] = useUpsertOrderMutation();
 
   const onCellEditRequest = useCallback((event: CellEditRequestEvent<Order>) => {
     const editedOrder = getEditedRowItem(event);
-    dispatch(updateOrderAction(editedOrder.id, editedOrder));
+    dispatch(updateOrderAction(editedOrder.workspaceId, editedOrder.id, editedOrder));
   }, [dispatch]);
 
   const onSelectionChanged = useCallback(() => {
@@ -45,13 +48,14 @@ const Orders = () => {
   }, [dispatch]);
 
   const addOrderHandler = useCallback(async () => {
-    const newOrder: Order = { id: nanoid(), name: 'new order' };
+    if (!selectedWorkspaceId) return;
+    const newOrder: Order = { id: nanoid(), name: 'new order', status: 'draft', workspaceId: selectedWorkspaceId };
     try {
       await upsertOrder(newOrder).unwrap();
     } catch (e) {
       console.error(e);
     }
-  }, [upsertOrder]);
+  }, [upsertOrder, selectedWorkspaceId]);
 
   const test = () => {
     dispatch(itemApi.endpoints.searchItemsBatch.initiate({ orderIds: ['ri6CHMGrjxpxN4dkO0g24', 'bq9oe9MrLaNA5PSgqTC8h'] }));
@@ -61,7 +65,7 @@ const Orders = () => {
     <div style={{ height: '200px', width: '100%' }}>
       <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
         <div style={{ marginBottom: '4px' }}>
-          <button onClick={() => addOrderHandler()}>Add Order</button>
+          <button onClick={() => addOrderHandler()} disabled={!selectedWorkspaceId}>Add Order</button>
           <button onClick={() => test()}>Test Batch</button>
         </div>
         <div className="ag-theme-alpine" style={{ height: '100%' }}>

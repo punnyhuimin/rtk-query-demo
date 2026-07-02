@@ -3,6 +3,7 @@ import { useSelector } from 'react-redux';
 import { RootState } from 'app/store';
 
 import { useGetOrderByIdQuery } from './orderApi';
+import { selectSelectedWorkspaceId } from 'features/workspace/workspaceSlice';
 
 interface OrderState {
   selectedOrderId: string | undefined;
@@ -31,5 +32,6 @@ export default orderSlice.reducer;
 
 export const useSelectedOrder = () => {
   const selectedOrderId = useSelector((state: RootState) => state.order.selectedOrderId);
-  return useGetOrderByIdQuery(selectedOrderId);
+  const selectedWorkspaceId = useSelector((state: RootState) => selectSelectedWorkspaceId(state));
+  return useGetOrderByIdQuery(selectedOrderId, selectedWorkspaceId);
 };

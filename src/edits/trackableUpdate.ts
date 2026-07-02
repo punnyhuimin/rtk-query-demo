@@ -4,6 +4,7 @@ import { historyActions } from './historySlice';
 import { convertToIdPaths } from 'patches/convertToIdPaths';
 import { resolvePath } from 'patches/resolvePath';
 import type { CacheDiff, FieldEdit, Patch } from 'types/CacheDiff';
+import { extractOrderIdsFromTransaction } from './diffUtils';
 
 type PatchCollection = {
   patches: Patch[];
@@ -184,11 +185,19 @@ function applyTransaction(
   });
 }
 
-export const undoAction = () =>
+export const undoAction = (
+  isOrderLocked?: (orderId: string, state: RootState) => boolean,
+) =>
   (dispatch: AppDispatch, getState: () => RootState): void => {
-    const { past } = getState().history;
-    const tx = past[past.length - 1];
+    const state = getState();
+    const tx = state.history.past[state.history.past.length - 1];
     if (!tx) return;
+
+    if (isOrderLocked) {
+      const orderIds = extractOrderIdsFromTransaction(tx);
+      if (orderIds.some(id => isOrderLocked(id, state))) return;
+    }
+
     // Bypass trackableUpdateQueryData so undo does NOT create a new history entry
     applyTransaction(dispatch, tx.diffs, 'undo');
     dispatch(historyActions.undo());

@@ -4,14 +4,23 @@ import historyReducer, { type HistoryState } from './historySlice';
 import { trackableUpdateQueryData, undoAction, redoAction } from './trackableUpdate';
 import type { CacheDiff, Transaction } from 'types/CacheDiff';
 
-jest.mock('features/api/apiSlice', () => ({
-  api: {
-    util: { updateQueryData: jest.fn() },
-    endpoints: {
-      getOrders: { select: jest.fn() },
+jest.mock('features/api/apiSlice', () => {
+  const { createApi, fetchBaseQuery } = jest.requireActual('@reduxjs/toolkit/query/react');
+
+  const api = createApi({
+    reducerPath: 'api',
+    baseQuery: fetchBaseQuery({ baseUrl: '/api/v1/' }),
+    endpoints: () => ({}),
+  });
+
+  return {
+    api: {
+      ...api,
+      util: { ...api.util, updateQueryData: jest.fn() },
+      endpoints: { getOrders: { select: jest.fn() } },
     },
-  },
-}));
+  };
+});
 
 const mockUpdateQueryData = api.util.updateQueryData as jest.Mock;
 const mockEndpointSelect = (api.endpoints as Record<string, any>).getOrders.select as jest.Mock;
@@ -150,6 +159,85 @@ describe('undoAction', () => {
     const draft = [{ id: '1', name: 'Changed' }];
     capturedRecipe!(draft);
     expect((draft[0] as any).name).toBe('Original');
+  });
+});
+
+describe('undoAction with isOrderLocked', () => {
+  it('skips the transaction when the predicate returns true for a string queryArg', () => {
+    const tx = makeTx({ diffs: [makeDiff({ queryArg: 'order-1' })] });
+    const store = makeStore({ past: [tx] });
+
+    (store.dispatch as any)(undoAction(id => id === 'order-1'));
+
+    expect(mockUpdateQueryData).not.toHaveBeenCalled();
+    expect(store.getState().history.past).toHaveLength(1);
+    expect(store.getState().history.future).toHaveLength(0);
+  });
+
+  it('skips when the predicate returns true for any order in the transaction', () => {
+    const tx = makeTx({
+      diffs: [
+        makeDiff({ queryArg: 'order-1' }),
+        makeDiff({ id: 'diff-2', queryArg: 'order-2' }),
+      ],
+    });
+    const store = makeStore({ past: [tx] });
+
+    (store.dispatch as any)(undoAction(id => id === 'order-2'));
+
+    expect(mockUpdateQueryData).not.toHaveBeenCalled();
+    expect(store.getState().history.past).toHaveLength(1);
+  });
+
+  it('skips when the predicate returns true for a queryArg.orderId (searchItems endpoint)', () => {
+    const tx = makeTx({ diffs: [makeDiff({ endpointName: 'searchItems', queryArg: { orderId: 'order-1' } })] });
+    const store = makeStore({ past: [tx] });
+
+    (store.dispatch as any)(undoAction(id => id === 'order-1'));
+
+    expect(mockUpdateQueryData).not.toHaveBeenCalled();
+    expect(store.getState().history.past).toHaveLength(1);
+  });
+
+  it('undoes normally when the predicate returns false for all touched orders', () => {
+    const tx = makeTx({ diffs: [makeDiff({ queryArg: 'order-1' })] });
+    const store = makeStore({ past: [tx] });
+
+    (store.dispatch as any)(undoAction(() => false));
+
+    expect(mockUpdateQueryData).toHaveBeenCalledTimes(1);
+    expect(store.getState().history.past).toHaveLength(0);
+    expect(store.getState().history.future).toHaveLength(1);
+  });
+
+  it('passes the current state to the predicate', () => {
+    const tx = makeTx({ diffs: [makeDiff({ queryArg: 'order-1' })] });
+    const store = makeStore({ past: [tx] });
+    const isOrderLocked = jest.fn().mockReturnValue(false);
+
+    (store.dispatch as any)(undoAction(isOrderLocked));
+
+    expect(isOrderLocked).toHaveBeenCalledWith(
+      'order-1',
+      expect.objectContaining({ history: expect.any(Object) }),
+    );
+  });
+
+  it('calls the predicate once per unique ID extracted from the transaction', () => {
+    const tx = makeTx({
+      diffs: [
+        makeDiff({ queryArg: 'ws-1' }),
+        makeDiff({ id: 'diff-2', endpointName: 'searchItems', queryArg: { orderId: 'order-2' } }),
+      ],
+    });
+    const store = makeStore({ past: [tx] });
+    const isOrderLocked = jest.fn().mockReturnValue(false);
+
+    (store.dispatch as any)(undoAction(isOrderLocked));
+
+    expect(isOrderLocked).toHaveBeenCalledWith('ws-1', expect.any(Object));
+    expect(isOrderLocked).toHaveBeenCalledWith('order-2', expect.any(Object));
+    expect(mockUpdateQueryData).toHaveBeenCalledTimes(2);
   });
 });
 
