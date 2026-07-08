@@ -1,10 +1,5 @@
 import { renderHook } from '@testing-library/react';
 import { useUndoRedoShortcut } from './useUndoRedoShortcut';
-import { useHistory } from './useHistory';
-
-jest.mock('./useHistory');
-
-const mockUseHistory = useHistory as jest.MockedFunction<typeof useHistory>;
 
 describe('useUndoRedoShortcut', () => {
   let undo: jest.Mock;
@@ -13,16 +8,6 @@ describe('useUndoRedoShortcut', () => {
   beforeEach(() => {
     undo = jest.fn();
     redo = jest.fn();
-    mockUseHistory.mockReturnValue({
-      undo,
-      redo,
-      clear: jest.fn(),
-      purgeByIds: jest.fn(),
-      setMaxSize: jest.fn(),
-      canUndo: false,
-      canRedo: false,
-      pastTransactions: [],
-    });
   });
 
   const fire = (
@@ -42,34 +27,34 @@ describe('useUndoRedoShortcut', () => {
   };
 
   it('Ctrl+Z calls undo', () => {
-    renderHook(() => useUndoRedoShortcut());
+    renderHook(() => useUndoRedoShortcut(undo, redo));
     fire('z', { ctrlKey: true });
     expect(undo).toHaveBeenCalledTimes(1);
     expect(redo).not.toHaveBeenCalled();
   });
 
   it('Meta+Z calls undo (Mac)', () => {
-    renderHook(() => useUndoRedoShortcut());
+    renderHook(() => useUndoRedoShortcut(undo, redo));
     fire('z', { metaKey: true });
     expect(undo).toHaveBeenCalledTimes(1);
   });
 
   it('Ctrl+Y calls redo', () => {
-    renderHook(() => useUndoRedoShortcut());
+    renderHook(() => useUndoRedoShortcut(undo, redo));
     fire('y', { ctrlKey: true });
     expect(redo).toHaveBeenCalledTimes(1);
     expect(undo).not.toHaveBeenCalled();
   });
 
   it('Ctrl+Shift+Z calls redo', () => {
-    renderHook(() => useUndoRedoShortcut());
+    renderHook(() => useUndoRedoShortcut(undo, redo));
     fire('z', { ctrlKey: true, shiftKey: true });
     expect(redo).toHaveBeenCalledTimes(1);
     expect(undo).not.toHaveBeenCalled();
   });
 
   it('ignores keys pressed without Ctrl or Meta', () => {
-    renderHook(() => useUndoRedoShortcut());
+    renderHook(() => useUndoRedoShortcut(undo, redo));
     fire('z');
     fire('y');
     expect(undo).not.toHaveBeenCalled();
@@ -77,7 +62,7 @@ describe('useUndoRedoShortcut', () => {
   });
 
   it('ignores unrelated Ctrl+key combinations', () => {
-    renderHook(() => useUndoRedoShortcut());
+    renderHook(() => useUndoRedoShortcut(undo, redo));
     fire('a', { ctrlKey: true });
     fire('s', { ctrlKey: true });
     expect(undo).not.toHaveBeenCalled();
@@ -85,7 +70,7 @@ describe('useUndoRedoShortcut', () => {
   });
 
   it('removes the keydown listener on unmount', () => {
-    const { unmount } = renderHook(() => useUndoRedoShortcut());
+    const { unmount } = renderHook(() => useUndoRedoShortcut(undo, redo));
     unmount();
     fire('z', { ctrlKey: true });
     expect(undo).not.toHaveBeenCalled();

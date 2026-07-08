@@ -13,16 +13,12 @@ import {
 } from 'ag-grid-community';
 
 import './App.css';
-import { useCallback } from 'react';
 import Loading from './app/Loading';
 import Workspaces from './features/workspace/Workspaces';
 import Orders from './features/order/Orders';
 import Items from './features/item/Items';
 import { useIsLoading } from './features/api/utils';
-import { useUndoRedoShortcut } from './edits/useUndoRedoShortcut';
-import { workspaceApi } from 'features/workspace/workspaceApi';
-import { orderApi } from 'features/order/orderApi';
-import type { RootState } from 'app/store';
+import { useGlobalUndoRedo } from './edits/useGlobalUndoRedo';
 
 ModuleRegistry.registerModules([
   ClientSideRowModelModule,
@@ -40,25 +36,7 @@ ModuleRegistry.registerModules([
 function App() {
   const isLoading = useIsLoading();
 
-  const isLocked = useCallback((id: string, state: RootState) => {
-    const workspaces = workspaceApi.endpoints.getWorkspaces.select()(state).data ?? [];
-
-    const workspace = workspaces.find(w => w.id === id);
-    if (workspace) return !workspace.isEditable;
-
-    for (const ws of workspaces) {
-      const order = orderApi.endpoints.getOrders.select(ws.id)(state).data?.find(o => o.id === id);
-      if (order) {
-        const owningWorkspace = workspaces.find(w => w.id === order.workspaceId);
-        if (owningWorkspace && !owningWorkspace.isEditable) return true;
-        return order.isEditable === false;
-      }
-    }
-
-    return false;
-  }, []);
-
-  useUndoRedoShortcut(isLocked);
+  useGlobalUndoRedo();
   return (
     <div className="App">
       { isLoading && <Loading />}
