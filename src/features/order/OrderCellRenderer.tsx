@@ -9,7 +9,7 @@ import type { CustomCellRendererProps } from 'ag-grid-community';
 import type { Order } from 'types';
 
 const OrderCellRenderer = ({ data }: CustomCellRendererProps<Order>) => {
-  const { data: order } = useGetOrderByIdQuery(data!.id);
+  const { data: order } = useGetOrderByIdQuery(data!.id, data!.workspaceId);
   const { data: items } = useSearchItemsQueryState({ orderId: data!.id });
   const initialItemIds = useInitialOrderItemIds(data!.id);
 
@@ -38,7 +38,7 @@ const OrderCellRenderer = ({ data }: CustomCellRendererProps<Order>) => {
   const deleteOrderHandler = async () => {
     try {
       await Promise.all([
-        deleteOrder(data!.id).unwrap(),
+        deleteOrder({ orderId: data!.id, workspaceId: data!.workspaceId }).unwrap(),
         deleteOrderItems(data!.id).unwrap(),
       ]);
     } catch (error) {

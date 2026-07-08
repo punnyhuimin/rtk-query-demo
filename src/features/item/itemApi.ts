@@ -3,7 +3,7 @@ import { api } from 'features/api/apiSlice';
 import { updateOrderAction } from 'features/order/orderApi';
 import { providesId } from 'features/api/utils';
 import { trackableUpdateQueryData } from 'edits/trackableUpdate';
-import { historyActions } from 'edits/historySlice';
+import { history } from 'edits/history';
 import { saveInitialOrderItemIds } from './itemSlice';
 import { store } from 'app/store';
 import type { AppDispatch } from 'app/store';
@@ -140,7 +140,7 @@ const invalidateBatchItemsResults = (dispatch: (action: unknown) => void, orderI
 };
 
 export const editOrderItemAction = (workspaceId: string, orderId: string, editedItem: Item) => (dispatch: AppDispatch) => {
-  dispatch(historyActions.beginTransaction());
+  history.beginTransaction();
   dispatch(trackableUpdateQueryData(
     'searchItems', { orderId }, (draftItems: Item[]) => {
       const item = draftItems.find(o => o.id === editedItem.id);
@@ -150,12 +150,12 @@ export const editOrderItemAction = (workspaceId: string, orderId: string, edited
     }
   ));
   dispatch(updateOrderAction(workspaceId, orderId));
-  dispatch(historyActions.commitTransaction());
+  history.commitTransaction();
   invalidateBatchItemsResults(dispatch, orderId);
 };
 
 export const addOrderItemAction = (workspaceId: string, orderId: string, newItem: Item) => (dispatch: AppDispatch) => {
-  dispatch(historyActions.beginTransaction());
+  history.beginTransaction();
   dispatch(trackableUpdateQueryData(
     'searchItems', { orderId }, (draftItems: Item[]) => {
       draftItems.push({ ...newItem, __isDirty: true });
@@ -166,12 +166,12 @@ export const addOrderItemAction = (workspaceId: string, orderId: string, newItem
     orderId,
     (draftOrder) => { draftOrder.itemsCount = '...'; },
   ));
-  dispatch(historyActions.commitTransaction());
+  history.commitTransaction();
   invalidateBatchItemsResults(dispatch, orderId);
 };
 
 export const deleteOrderItemAction = (workspaceId: string, orderId: string, itemId: string) => (dispatch: AppDispatch) => {
-  dispatch(historyActions.beginTransaction());
+  history.beginTransaction();
   dispatch(trackableUpdateQueryData(
     'searchItems', { orderId }, (draftItems: Item[]) => {
       const idx = draftItems.findIndex(o => o.id === itemId);
@@ -179,7 +179,7 @@ export const deleteOrderItemAction = (workspaceId: string, orderId: string, item
     }
   ));
   dispatch(updateOrderAction(workspaceId, orderId));
-  dispatch(historyActions.commitTransaction());
+  history.commitTransaction();
   invalidateBatchItemsResults(dispatch, orderId);
 };
 
@@ -195,7 +195,7 @@ export const setWarehouseCountAction = (
   itemId: string,
   newCount: number,
 ) => (dispatch: AppDispatch) => {
-  dispatch(historyActions.beginTransaction());
+  history.beginTransaction();
   dispatch(trackableUpdateQueryData(
     'searchItems', { orderId }, (draftItems: Item[]) => {
       const item = draftItems.find(o => o.id === itemId);
@@ -217,18 +217,18 @@ export const setWarehouseCountAction = (
     }
   ));
   dispatch(updateOrderAction(workspaceId, orderId));
-  dispatch(historyActions.commitTransaction());
+  history.commitTransaction();
   invalidateBatchItemsResults(dispatch, orderId);
 };
 
 export const clearOrderItemsAction = (workspaceId: string, orderId: string) => (dispatch: AppDispatch) => {
-  dispatch(historyActions.beginTransaction());
+  history.beginTransaction();
   dispatch(trackableUpdateQueryData(
     'searchItems', { orderId }, (draftItems: Item[]) => {
       draftItems.length = 0;
     }
   ));
   dispatch(updateOrderAction(workspaceId, orderId));
-  dispatch(historyActions.commitTransaction());
+  history.commitTransaction();
   invalidateBatchItemsResults(dispatch, orderId);
 };

@@ -2,7 +2,7 @@ import { api } from 'features/api/apiSlice';
 import { providesList } from 'features/api/utils';
 import { mergeRetainDirty } from 'mocks/services/utils';
 import { trackableUpdateQueryData } from 'edits/trackableUpdate';
-import { historyActions } from 'edits/historySlice';
+import { history } from 'edits/history';
 import type { Order } from 'types';
 
 export const orderApi = api.injectEndpoints({
@@ -34,7 +34,7 @@ export const orderApi = api.injectEndpoints({
               }),
             );
           }
-          if (order.id) dispatch(historyActions.purgeByIds([order.id]));
+          if (order.id) history.purgeByIds([order.id]);
         } catch { /* save failed — leave history intact */ }
       },
     }),
@@ -44,13 +44,16 @@ export const orderApi = api.injectEndpoints({
         method: 'DELETE',
       }),
       invalidatesTags: ['Order'],
-      async onQueryStarted({ orderId, workspaceId }, { dispatch }) {
-        dispatch(
-          orderApi.util.updateQueryData('getOrders', workspaceId, (draftOrders) => {
-            const draftOrder = draftOrders.find(o => o.id === orderId);
-            if (draftOrder) delete draftOrder.__isDirty;
-          }),
-        );
+      async onQueryStarted({ orderId, workspaceId }, { dispatch, queryFulfilled }) {
+        try {
+          await queryFulfilled;
+          dispatch(
+            orderApi.util.updateQueryData('getOrders', workspaceId, (draftOrders) => {
+              const draftOrder = draftOrders.find(o => o.id === orderId);
+              if (draftOrder) delete draftOrder.__isDirty;
+            }),
+          );
+        } catch { /* delete failed — leave cache intact */ }
       },
     }),
   }),

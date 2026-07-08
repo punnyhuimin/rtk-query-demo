@@ -1,6 +1,6 @@
 import type { AppDispatch, RootState } from 'app/store';
 import { api } from 'features/api/apiSlice';
-import { historyActions } from './historySlice';
+import { history } from './history';
 import { convertToIdPaths } from 'patches/convertToIdPaths';
 import { resolvePath } from 'patches/resolvePath';
 import type { CacheDiff, FieldEdit, Patch } from 'types/CacheDiff';
@@ -53,10 +53,7 @@ export const trackableUpdateQueryData = (
       ? convertToIdPaths(cacheBefore, cacheAfter)
       : [];
 
-    // Always push inside an open transaction so every update intent is captured
-    // in the atomic undo unit, even when this particular recipe was a no-op.
-    // Outside a transaction only push when there are actual edits to record.
-    if (edits.length > 0 || getState().history.inTransaction) {
+    if (edits.length > 0) {
       const diff: CacheDiff = {
         id: newDiffId(),
         timestamp: Date.now(),
@@ -66,7 +63,7 @@ export const trackableUpdateQueryData = (
         patches: patchCollection?.patches ?? [],
         inversePatches: patchCollection?.inversePatches ?? [],
       };
-      dispatch(historyActions.push(diff));
+      history.push(diff);
     }
 
     return patchCollection;
@@ -185,29 +182,27 @@ function applyTransaction(
   });
 }
 
-export const undoAction = (
+export function undoAction(
+  dispatch: AppDispatch,
+  getState: () => RootState,
   isOrderLocked?: (orderId: string, state: RootState) => boolean,
-) =>
-  (dispatch: AppDispatch, getState: () => RootState): void => {
-    const state = getState();
-    const tx = state.history.past[state.history.past.length - 1];
-    if (!tx) return;
+): void {
+  const tx = history.past[history.past.length - 1];
+  if (!tx) return;
 
-    if (isOrderLocked) {
-      const orderIds = extractOrderIdsFromTransaction(tx);
-      if (orderIds.some(id => isOrderLocked(id, state))) return;
-    }
+  if (isOrderLocked) {
+    const orderIds = extractOrderIdsFromTransaction(tx);
+    if (orderIds.some(id => isOrderLocked(id, getState()))) return;
+  }
 
-    // Bypass trackableUpdateQueryData so undo does NOT create a new history entry
-    applyTransaction(dispatch, tx.diffs, 'undo');
-    dispatch(historyActions.undo());
-  };
+  // Bypass trackableUpdateQueryData so undo does NOT create a new history entry
+  applyTransaction(dispatch, tx.diffs, 'undo');
+  history.undo();
+}
 
-export const redoAction = () =>
-  (dispatch: AppDispatch, getState: () => RootState): void => {
-    const { future } = getState().history;
-    const tx = future[0];
-    if (!tx) return;
-    applyTransaction(dispatch, tx.diffs, 'redo');
-    dispatch(historyActions.redo());
-  };
+export function redoAction(dispatch: AppDispatch): void {
+  const tx = history.future[0];
+  if (!tx) return;
+  applyTransaction(dispatch, tx.diffs, 'redo');
+  history.redo();
+}
