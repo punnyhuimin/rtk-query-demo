@@ -1,4 +1,5 @@
 import type { CacheDiff, Transaction } from 'types/CacheDiff';
+import type { ApiQueryName } from 'features/api/endpointTypes';
 import {
   extractOrderIdsFromTransaction,
   diffTouchesOrderIds,
@@ -103,7 +104,7 @@ describe('extractOrderIdsFromTransaction', () => {
 
   it('produces no IDs from an object queryArg with no registered extractor', () => {
     const tx = makeTx({
-      diffs: [makeDiff({ endpointName: 'unknownEndpoint', queryArg: { someField: 'value' }, edits: [] })],
+      diffs: [makeDiff({ endpointName: 'unknownEndpoint' as ApiQueryName, queryArg: { someField: 'value' }, edits: [] })],
     });
     expect(extractOrderIdsFromTransaction(tx)).toHaveLength(0);
   });
@@ -163,7 +164,7 @@ describe('diffTouchesOrderIds', () => {
 
   it('returns false for an object queryArg with no registered extractor', () => {
     const diff = makeDiff({
-      endpointName: 'unknownEndpoint',
+      endpointName: 'unknownEndpoint' as ApiQueryName,
       queryArg: { someField: 'ws-1' },
       edits: [],
     });
@@ -177,19 +178,19 @@ describe('diffTouchesOrderIds', () => {
 
 describe('registerArgExtractor', () => {
   it('makes extractOrderIdsFromTransaction use the custom extractor', () => {
-    registerArgExtractor('testEndpointA', (arg) => [(arg as { packageId: string }).packageId]);
+    registerArgExtractor('testEndpointA' as ApiQueryName, (arg) => [(arg as { packageId: string }).packageId]);
 
     const tx = makeTx({
-      diffs: [makeDiff({ endpointName: 'testEndpointA', queryArg: { packageId: 'pkg-1' }, edits: [] })],
+      diffs: [makeDiff({ endpointName: 'testEndpointA' as ApiQueryName, queryArg: { packageId: 'pkg-1' }, edits: [] })],
     });
     expect(extractOrderIdsFromTransaction(tx)).toContain('pkg-1');
   });
 
   it('makes diffTouchesOrderIds use the custom extractor', () => {
-    registerArgExtractor('testEndpointB', (arg) => [(arg as { packageId: string }).packageId]);
+    registerArgExtractor('testEndpointB' as ApiQueryName, (arg) => [(arg as { packageId: string }).packageId]);
 
     const diff = makeDiff({
-      endpointName: 'testEndpointB',
+      endpointName: 'testEndpointB' as ApiQueryName,
       queryArg: { packageId: 'pkg-2' },
       edits: [],
     });
@@ -197,11 +198,11 @@ describe('registerArgExtractor', () => {
   });
 
   it('overrides an existing extractor for the same endpoint', () => {
-    registerArgExtractor('testEndpointC', () => ['original']);
-    registerArgExtractor('testEndpointC', () => ['overridden']);
+    registerArgExtractor('testEndpointC' as ApiQueryName, () => ['original']);
+    registerArgExtractor('testEndpointC' as ApiQueryName, () => ['overridden']);
 
     const tx = makeTx({
-      diffs: [makeDiff({ endpointName: 'testEndpointC', queryArg: {}, edits: [] })],
+      diffs: [makeDiff({ endpointName: 'testEndpointC' as ApiQueryName, queryArg: {}, edits: [] })],
     });
     expect(extractOrderIdsFromTransaction(tx)).toContain('overridden');
     expect(extractOrderIdsFromTransaction(tx)).not.toContain('original');

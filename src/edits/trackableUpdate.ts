@@ -1,4 +1,6 @@
 import type { AppDispatch, RootState } from 'app/store';
+import type { QueryArgFrom, ResultTypeFrom } from '@reduxjs/toolkit/query';
+import type { ApiDefinitions, ApiQueryName } from 'features/api/endpointTypes';
 import { api } from 'features/api/apiSlice';
 import { history } from './history';
 import { convertToIdPaths } from 'patches/convertToIdPaths';
@@ -15,7 +17,7 @@ type PatchCollection = {
 let _seq = 0;
 const newDiffId = () => `d${(++_seq).toString(36)}-${Date.now().toString(36)}`;
 
-const selectCache = (endpointName: string, arg: unknown, state: RootState) =>
+const selectCache = (endpointName: ApiQueryName, arg: unknown, state: RootState) =>
   ((api.endpoints as Record<string, any>)[endpointName]?.select(arg)(state).data ?? []) as Array<{ id: string }>;
 
 /**
@@ -35,10 +37,10 @@ const selectCache = (endpointName: string, arg: unknown, state: RootState) =>
  *   dispatch(trackableUpdateQueryData(...));
  *   dispatch(historyActions.commitTransaction());
  */
-export const trackableUpdateQueryData = (
-  endpointName: string,
-  arg: unknown,
-  recipe: (draft: any) => void,
+export const trackableUpdateQueryData = <N extends ApiQueryName>(
+  endpointName: N,
+  arg: QueryArgFrom<ApiDefinitions[N]>,
+  recipe: (draft: ResultTypeFrom<ApiDefinitions[N]>) => void,
 ) =>
   (dispatch: AppDispatch, getState: () => RootState): PatchCollection => {
     const cacheBefore = selectCache(endpointName, arg, getState());

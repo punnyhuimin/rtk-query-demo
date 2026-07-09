@@ -12,13 +12,14 @@ export interface FieldEdit {
 }
 
 import type { Patch } from 'immer';
+import type { ApiQueryName } from 'features/api/endpointTypes';
 
 export type { Patch };
 
 export interface CacheDiff {
   id: string;
   timestamp: number;
-  endpointName: string;
+  endpointName: ApiQueryName;
   queryArg: unknown;
   edits: FieldEdit[];
   /** Raw Immer patches — kept for diagnostics; undo/redo uses id-based edits above */

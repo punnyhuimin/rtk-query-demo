@@ -1,19 +1,20 @@
 import type { CacheDiff, Transaction } from 'types/CacheDiff';
+import type { ApiQueryName } from 'features/api/endpointTypes';
 
 type ArgExtractor = (queryArg: unknown) => string[];
 
 // Per-endpoint registry: maps endpoint name → function that extracts relevant IDs
 // from that endpoint's queryArg. String queryArgs are always extracted directly.
 // Register here for object-shaped args (e.g. searchItems uses { orderId }).
-const argExtractors: Record<string, ArgExtractor> = {
+const argExtractors: Partial<Record<ApiQueryName, ArgExtractor>> = {
   searchItems: (arg) => [(arg as { orderId: string }).orderId],
 };
 
-export function registerArgExtractor(endpointName: string, extractor: ArgExtractor): void {
+export function registerArgExtractor(endpointName: ApiQueryName, extractor: ArgExtractor): void {
   argExtractors[endpointName] = extractor;
 }
 
-function extractIdsFromQueryArg(endpointName: string, queryArg: unknown): string[] {
+function extractIdsFromQueryArg(endpointName: ApiQueryName, queryArg: unknown): string[] {
   if (typeof queryArg === 'string') return [queryArg];
   if (queryArg == null) return [];
   const extractor = argExtractors[endpointName];
